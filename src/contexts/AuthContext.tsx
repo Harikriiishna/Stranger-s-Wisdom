@@ -1,11 +1,27 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { auth, googleAuthProvider } from '../lib/firebase';
-import { authApi, profileApi, setInMemoryToken } from '../lib/api';
-import type { UserProfile } from '../types';
+import { authApi, profileApi, registerAuthExpiredHandler, setInMemoryToken } from '../lib/api';
+import { applyThemeToDocument, isValidThemeMode } from '../lib/themes';
+import type { ThemeMode, UserProfile } from '../types';
 
-type ThemeMode = 'dark' | 'light' | 'system';
+const LOCAL_THEME_KEY = 'sw_theme';
+
+function getInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') return 'dark';
+  try {
+    const saved = window.localStorage.getItem(LOCAL_THEME_KEY);
+    if (isValidThemeMode(saved)) {
+      applyThemeToDocument(saved);
+      return saved;
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  applyThemeToDocument('dark');
+  return 'dark';
+}
 
 interface AuthContextValue {
   profile: UserProfile | null;
@@ -27,30 +43,34 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function applyThemeClass(mode: ThemeMode) {
-  const root = document.documentElement;
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
-  if (isDark) {
-    root.classList.add('dark');
-  } else {
-    root.classList.remove('dark');
-  }
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [theme, setThemeState] = useState<ThemeMode>('dark');
+  const [theme, setThemeState] = useState<ThemeMode>(getInitialTheme);
   const queryClient = useQueryClient();
+  const profileIdRef = useRef<string | null>(null);
 
   const applyAndStoreProfile = useCallback((next: UserProfile | null) => {
+    profileIdRef.current = next?.id ?? null;
     setProfile(next);
-    if (next?.theme) {
+    if (next?.theme && isValidThemeMode(next.theme)) {
       setThemeState(next.theme);
-      applyThemeClass(next.theme);
+      applyThemeToDocument(next.theme);
+      try {
+        window.localStorage.setItem(LOCAL_THEME_KEY, next.theme);
+      } catch {
+        // Ignore storage errors
+      }
     }
   }, []);
+
+  useEffect(() => {
+    registerAuthExpiredHandler(() => {
+      setInMemoryToken(null);
+      applyAndStoreProfile(null);
+      queryClient.removeQueries({ predicate: (q) => ['my-questions', 'my-answers', 'my-received', 'drafts', 'saved', 'notifications', 'profile-stats', 'one-voice', 'moderation-status', 'moderation-dashboard'].includes(String(q.queryKey[0])) });
+    });
+  }, [applyAndStoreProfile, queryClient]);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -71,10 +91,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [applyAndStoreProfile]);
 
   useEffect(() => {
-    applyThemeClass(theme);
+    applyThemeToDocument(theme);
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => {
-      if (theme === 'system') applyThemeClass('system');
+      if (theme === 'system') applyThemeToDocument('system');
     };
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
@@ -84,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void refreshSession();
 
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
+      if (firebaseUser && profileIdRef.current !== firebaseUser.uid) {
         try {
           const idToken = await firebaseUser.getIdToken();
           const res = await authApi.google(idToken);
@@ -145,7 +165,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setTheme = async (nextTheme: ThemeMode) => {
     setThemeState(nextTheme);
-    applyThemeClass(nextTheme);
+    applyThemeToDocument(nextTheme);
+    try {
+      window.localStorage.setItem(LOCAL_THEME_KEY, nextTheme);
+    } catch {
+      // Ignore storage errors
+    }
     if (profile) {
       const res = await profileApi.update({ theme: nextTheme });
       setProfile(res.profile);

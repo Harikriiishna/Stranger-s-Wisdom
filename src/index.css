@@ -39,6 +39,138 @@
     radial-gradient(40% 35% at 85% 15%, rgba(167, 139, 250, 0.07) 0%, transparent 65%);
 }
 
+/* Additional curated sanctuary themes */
+html[data-theme='amber-dusk'] {
+  --sw-canvas: #120b12;
+  --sw-chrome: rgba(23, 14, 24, 0.92);
+  --sw-surface: #1c121d;
+  --sw-surface-elevated: #261928;
+  --sw-border: rgba(120, 53, 15, 0.45);
+  --sw-glow-1: rgba(245, 158, 11, 0.11);
+  --sw-glow-2: rgba(244, 114, 182, 0.07);
+}
+
+html[data-theme='forest-mist'] {
+  --sw-canvas: #071412;
+  --sw-chrome: rgba(10, 26, 23, 0.92);
+  --sw-surface: #0d211d;
+  --sw-surface-elevated: #142c27;
+  --sw-border: rgba(19, 78, 74, 0.58);
+  --sw-glow-1: rgba(45, 212, 191, 0.1);
+  --sw-glow-2: rgba(52, 211, 153, 0.08);
+}
+
+html[data-theme='velvet-violet'] {
+  --sw-canvas: #0e0a1f;
+  --sw-chrome: rgba(18, 13, 40, 0.92);
+  --sw-surface: #171230;
+  --sw-surface-elevated: #211a42;
+  --sw-border: rgba(76, 29, 149, 0.58);
+  --sw-glow-1: rgba(167, 139, 250, 0.12);
+  --sw-glow-2: rgba(232, 121, 249, 0.08);
+}
+
+html[data-theme='parchment'] {
+  --sw-canvas: #fbf7f0;
+  --sw-chrome: rgba(255, 251, 244, 0.94);
+  --sw-surface: #fffdf9;
+  --sw-surface-elevated: #f5efe4;
+  --sw-border: rgba(180, 159, 132, 0.45);
+  --sw-glow-1: rgba(14, 116, 144, 0.06);
+  --sw-glow-2: rgba(217, 119, 6, 0.07);
+}
+
+html[data-theme='amber-dusk'] body,
+html[data-theme='forest-mist'] body,
+html[data-theme='velvet-violet'] body,
+html[data-theme='amber-dusk'] .dark\:bg-\[\#070B19\],
+html[data-theme='forest-mist'] .dark\:bg-\[\#070B19\],
+html[data-theme='velvet-violet'] .dark\:bg-\[\#070B19\] {
+  background-color: var(--sw-canvas);
+}
+
+html[data-theme='amber-dusk'] .dark\:bg-\[\#090F22\]\/90,
+html[data-theme='amber-dusk'] .dark\:bg-\[\#090F22\]\/95,
+html[data-theme='amber-dusk'] .dark\:bg-\[\#070B19\]\/90,
+html[data-theme='forest-mist'] .dark\:bg-\[\#090F22\]\/90,
+html[data-theme='forest-mist'] .dark\:bg-\[\#090F22\]\/95,
+html[data-theme='forest-mist'] .dark\:bg-\[\#070B19\]\/90,
+html[data-theme='velvet-violet'] .dark\:bg-\[\#090F22\]\/90,
+html[data-theme='velvet-violet'] .dark\:bg-\[\#090F22\]\/95,
+html[data-theme='velvet-violet'] .dark\:bg-\[\#070B19\]\/90 {
+  background-color: var(--sw-chrome);
+}
+
+html[data-theme='amber-dusk'] .dark\:bg-\[\#0D1326\],
+html[data-theme='amber-dusk'] .dark\:bg-\[\#0A0F20\],
+html[data-theme='forest-mist'] .dark\:bg-\[\#0D1326\],
+html[data-theme='forest-mist'] .dark\:bg-\[\#0A0F20\],
+html[data-theme='velvet-violet'] .dark\:bg-\[\#0D1326\],
+html[data-theme='velvet-violet'] .dark\:bg-\[\#0A0F20\] {
+  background-color: var(--sw-surface);
+}
+
+html[data-theme='amber-dusk'] .dark\:bg-\[\#111936\],
+html[data-theme='amber-dusk'] .dark\:from-\[\#0E1630\],
+html[data-theme='amber-dusk'] .dark\:from-\[\#101836\],
+html[data-theme='forest-mist'] .dark\:bg-\[\#111936\],
+html[data-theme='forest-mist'] .dark\:from-\[\#0E1630\],
+html[data-theme='forest-mist'] .dark\:from-\[\#101836\],
+html[data-theme='velvet-violet'] .dark\:bg-\[\#111936\],
+html[data-theme='velvet-violet'] .dark\:from-\[\#0E1630\],
+html[data-theme='velvet-violet'] .dark\:from-\[\#101836\] {
+  background-color: var(--sw-surface-elevated);
+  background-image: none;
+}
+
+html[data-theme='amber-dusk'] .dark\:border-indigo-950,
+html[data-theme='amber-dusk'] .dark\:border-indigo-950\/80,
+html[data-theme='amber-dusk'] .dark\:border-indigo-950\/70,
+html[data-theme='amber-dusk'] .dark\:border-indigo-950\/90,
+html[data-theme='amber-dusk'] .dark\:border-indigo-900,
+html[data-theme='forest-mist'] .dark\:border-indigo-950,
+html[data-theme='forest-mist'] .dark\:border-indigo-950\/80,
+html[data-theme='forest-mist'] .dark\:border-indigo-950\/70,
+html[data-theme='forest-mist'] .dark\:border-indigo-950\/90,
+html[data-theme='forest-mist'] .dark\:border-indigo-900,
+html[data-theme='velvet-violet'] .dark\:border-indigo-950,
+html[data-theme='velvet-violet'] .dark\:border-indigo-950\/80,
+html[data-theme='velvet-violet'] .dark\:border-indigo-950\/70,
+html[data-theme='velvet-violet'] .dark\:border-indigo-950\/90,
+html[data-theme='velvet-violet'] .dark\:border-indigo-900 {
+  border-color: var(--sw-border);
+}
+
+html[data-theme='parchment'] body,
+html[data-theme='parchment'] .bg-slate-50 {
+  background-color: var(--sw-canvas);
+}
+
+html[data-theme='parchment'] .bg-white {
+  background-color: var(--sw-surface);
+}
+
+html[data-theme='parchment'] .bg-white\/85,
+html[data-theme='parchment'] .bg-white\/90,
+html[data-theme='parchment'] .bg-white\/95 {
+  background-color: var(--sw-chrome);
+}
+
+html[data-theme='parchment'] .border-slate-200,
+html[data-theme='parchment'] .border-slate-200\/80,
+html[data-theme='parchment'] .border-slate-200\/90 {
+  border-color: var(--sw-border);
+}
+
+html[data-theme='amber-dusk'] .sanctuary-glow,
+html[data-theme='forest-mist'] .sanctuary-glow,
+html[data-theme='velvet-violet'] .sanctuary-glow,
+html[data-theme='parchment'] .sanctuary-glow {
+  background-image:
+    radial-gradient(60% 45% at 50% 0%, var(--sw-glow-1) 0%, transparent 70%),
+    radial-gradient(40% 35% at 85% 15%, var(--sw-glow-2) 0%, transparent 65%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

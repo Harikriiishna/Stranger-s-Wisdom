@@ -58,7 +58,7 @@ const SEVERE_ABUSE_PATTERNS = [
 ];
 
 const SPAM_PATTERNS = [
-  /(https?:\/\/\S+){3,}/i,
+  /(?:https?:\/\/\S+\s*){3,}/i,
   /\b(buy now|crypto giveaway|whatsapp me|telegram me|click here for free|earn \$[0-9]+ daily)\b/i,
   /(.)\1{10,}/,
 ];

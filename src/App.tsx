@@ -62,6 +62,9 @@ export default function App() {
                 />
                 <Route path="/my-questions" element={<MyWisdomPage defaultTab="questions" />} />
                 <Route path="/my-wisdom" element={<MyWisdomPage defaultTab="answers" />} />
+                <Route path="/my-wisdom/questions" element={<MyWisdomPage defaultTab="questions" />} />
+                <Route path="/my-wisdom/answers" element={<MyWisdomPage defaultTab="answers" />} />
+                <Route path="/my-wisdom/drafts" element={<MyWisdomPage defaultTab="drafts" />} />
                 <Route path="/saved" element={<SavedAndCollectionsPage defaultView="saved" />} />
                 <Route path="/collections" element={<SavedAndCollectionsPage defaultView="collections" />} />
                 <Route path="/one-voice" element={<OneVoicePage />} />

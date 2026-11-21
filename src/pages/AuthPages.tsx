@@ -430,6 +430,8 @@ export function ForgotPasswordPage() {
   const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [info, setInfo] = useState<string | null>(null);
+  const [newRecoveryCode, setNewRecoveryCode] = useState<string | null>(null);
+  const [copiedNewCode, setCopiedNewCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -459,6 +461,7 @@ export function ForgotPasswordPage() {
         newPassword,
       });
       setInfo(res.message);
+      setNewRecoveryCode(res.newRecoveryCode || null);
       setStep('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reset failed.');
@@ -551,6 +554,27 @@ export function ForgotPasswordPage() {
       {step === 'done' && (
         <div className="space-y-4 text-center">
           <p className="text-sm text-teal-700 dark:text-teal-300">{info}</p>
+          {newRecoveryCode && (
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-center space-y-3">
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                Your new recovery code (your previous code has expired)
+              </p>
+              <p className="font-tabular text-2xl font-bold tracking-widest text-slate-900 dark:text-white">
+                {newRecoveryCode}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(newRecoveryCode).catch(() => undefined);
+                  setCopiedNewCode(true);
+                }}
+                className="inline-flex min-h-[40px] items-center gap-2 rounded-xl border border-amber-500/40 px-4 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-200 cursor-pointer"
+              >
+                {copiedNewCode ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedNewCode ? 'Copied' : 'Copy New Code'}
+              </button>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => navigate('/signin')}

@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bookmark, FolderPlus, Plus, Search, Trash2, X } from 'lucide-react';
+import { Bookmark, ExternalLink, FolderPlus, Plus, Search, Trash2, X } from 'lucide-react';
+import { CardContextMenu } from '../components/CardContextMenu';
 import { Layout } from '../components/Layout';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { answersApi, questionsApi, savedApi } from '../lib/api';
+import { getAnswerShareUrl, getQuestionShareUrl } from '../lib/clipboard';
 import { formatTimeAgo } from '../lib/format';
 
 const COVER_IMAGES: Record<string, string> = {
@@ -34,6 +36,16 @@ export function SavedAndCollectionsPage({
   const [colName, setColName] = useState('');
   const [colDesc, setColDesc] = useState('');
   const [colCover, setColCover] = useState<'lantern' | 'horizon' | 'harbor' | 'sanctuary'>('lantern');
+  const [colError, setColError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmDeleteColId, setConfirmDeleteColId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setView(defaultView);
+    setSelectedCollectionId(null);
+    setConfirmDeleteColId(null);
+    setActionError(null);
+  }, [defaultView]);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['saved'],
@@ -44,18 +56,27 @@ export function SavedAndCollectionsPage({
   const createCollectionMutation = useMutation({
     mutationFn: savedApi.createCollection,
     onSuccess: () => {
+      setColError(null);
       queryClient.invalidateQueries({ queryKey: ['saved'] });
       setShowNewColModal(false);
       setColName('');
       setColDesc('');
+    },
+    onError: (err) => {
+      setColError(err instanceof Error ? err.message : 'Unable to create collection.');
     },
   });
 
   const deleteCollectionMutation = useMutation({
     mutationFn: savedApi.deleteCollection,
     onSuccess: () => {
+      setActionError(null);
+      setConfirmDeleteColId(null);
       setSelectedCollectionId(null);
       queryClient.invalidateQueries({ queryKey: ['saved'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to delete collection.');
     },
   });
 
@@ -144,7 +165,10 @@ export function SavedAndCollectionsPage({
             </button>
             <button
               type="button"
-              onClick={() => setShowNewColModal(true)}
+              onClick={() => {
+                setColError(null);
+                setShowNewColModal(true);
+              }}
               aria-label="Create collection"
               className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-indigo-800 px-3.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/60 cursor-pointer"
             >
@@ -153,6 +177,23 @@ export function SavedAndCollectionsPage({
             </button>
           </div>
         </div>
+
+        {actionError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-rose-500/35 bg-rose-500/10 px-4 py-3 text-xs text-rose-700 dark:text-rose-200"
+          >
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              aria-label="Dismiss error"
+              className="min-h-[32px] min-w-[32px] flex items-center justify-center cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {isLoading ? (
           <LoadingSkeleton count={3} />
@@ -204,14 +245,39 @@ export function SavedAndCollectionsPage({
                         </p>
                       )}
                     </button>
-                    <button
-                      type="button"
-                      aria-label={`Delete ${col.name}`}
-                      onClick={() => deleteCollectionMutation.mutate(col.id)}
-                      className="absolute top-2.5 right-2.5 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-xl bg-black/50 text-slate-200 hover:text-rose-400 cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {confirmDeleteColId === col.id ? (
+                      <div className="p-3 bg-rose-500/10 border-t border-rose-500/30 flex items-center justify-between gap-2 text-xs">
+                        <span className="text-rose-700 dark:text-rose-200 font-medium">
+                          Delete collection?
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteColId(null)}
+                            className="min-h-[32px] rounded-lg px-2.5 text-slate-600 dark:text-slate-300 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deleteCollectionMutation.isPending}
+                            onClick={() => deleteCollectionMutation.mutate(col.id)}
+                            className="min-h-[32px] rounded-lg bg-rose-600 px-2.5 font-semibold text-white cursor-pointer"
+                          >
+                            Confirm
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={`Delete ${col.name}`}
+                        onClick={() => setConfirmDeleteColId(col.id)}
+                        className="absolute top-2.5 right-2.5 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-xl bg-black/50 text-slate-200 hover:text-rose-400 cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -289,17 +355,40 @@ export function SavedAndCollectionsPage({
                               Saved {formatTimeAgo(item.savedAt)}
                             </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              await answersApi.unsave(item.answerId);
-                              queryClient.invalidateQueries({ queryKey: ['saved'] });
-                            }}
-                            aria-label="Remove saved answer"
-                            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-amber-500 hover:text-rose-500 cursor-pointer"
-                          >
-                            <Bookmark className="h-4 w-4" fill="currentColor" />
-                          </button>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setActionError(null);
+                                try {
+                                  await answersApi.unsave(item.answerId);
+                                  queryClient.invalidateQueries({ queryKey: ['saved'] });
+                                  queryClient.invalidateQueries({ queryKey: ['home'] });
+                                  queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+                                } catch (err) {
+                                  setActionError(
+                                    err instanceof Error ? err.message : 'Unable to remove saved answer.'
+                                  );
+                                }
+                              }}
+                              aria-label="Remove saved answer"
+                              className="min-h-[36px] min-w-[36px] flex items-center justify-center text-amber-500 hover:text-rose-500 cursor-pointer"
+                            >
+                              <Bookmark className="h-4 w-4" fill="currentColor" />
+                            </button>
+                            <CardContextMenu
+                              triggerLabel="Answer options"
+                              shareUrl={getAnswerShareUrl(item.questionId, item.answerId)}
+                              items={[
+                                {
+                                  label: 'View thread',
+                                  icon: <ExternalLink className="h-4 w-4 text-slate-400" />,
+                                  onClick: () =>
+                                    navigate(`/questions/${item.questionId}#answer-${item.answerId}`),
+                                },
+                              ]}
+                            />
+                          </div>
                         </div>
 
                         <p className="font-wisdom text-base leading-relaxed text-slate-800 dark:text-slate-200">
@@ -308,7 +397,7 @@ export function SavedAndCollectionsPage({
 
                         <div className="pt-2 border-t border-slate-100 dark:border-indigo-950/60 flex flex-wrap items-center justify-between gap-2 text-xs">
                           <Link
-                            to={`/questions/${item.questionId}`}
+                            to={`/questions/${item.questionId}#answer-${item.answerId}`}
                             className="text-cyan-700 dark:text-cyan-400 hover:underline truncate max-w-md"
                           >
                             From: {item.questionTitle}
@@ -317,14 +406,24 @@ export function SavedAndCollectionsPage({
                           {(data?.collections ?? []).length > 0 && (
                             <select
                               aria-label="Add to collection"
-                              defaultValue=""
+                              value=""
                               onChange={async (e) => {
-                                if (!e.target.value) return;
-                                await savedApi.addAnswerToCollection(
-                                  e.target.value,
-                                  item.answerId
-                                );
-                                queryClient.invalidateQueries({ queryKey: ['saved'] });
+                                const collectionId = e.target.value;
+                                if (!collectionId) return;
+                                setActionError(null);
+                                try {
+                                  await savedApi.addAnswerToCollection(
+                                    collectionId,
+                                    item.answerId
+                                  );
+                                  queryClient.invalidateQueries({ queryKey: ['saved'] });
+                                } catch (err) {
+                                  setActionError(
+                                    err instanceof Error
+                                      ? err.message
+                                      : 'Unable to add entry to collection.'
+                                  );
+                                }
                               }}
                               className="rounded-lg border border-slate-200 dark:border-indigo-900 bg-slate-50 dark:bg-[#070B19] px-2.5 py-1 text-xs"
                             >
@@ -360,17 +459,42 @@ export function SavedAndCollectionsPage({
                             {sq.title}
                           </h3>
                         </Link>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await questionsApi.unsave(sq.questionId);
-                            queryClient.invalidateQueries({ queryKey: ['saved'] });
-                          }}
-                          aria-label="Unsave question"
-                          className="min-h-[40px] min-w-[40px] flex items-center justify-center text-amber-500 hover:text-rose-500 cursor-pointer"
-                        >
-                          <Bookmark className="h-4 w-4" fill="currentColor" />
-                        </button>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setActionError(null);
+                              try {
+                                await questionsApi.unsave(sq.questionId);
+                                queryClient.invalidateQueries({ queryKey: ['saved'] });
+                                queryClient.invalidateQueries({ queryKey: ['questions'] });
+                                queryClient.invalidateQueries({ queryKey: ['home'] });
+                                queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+                              } catch (err) {
+                                setActionError(
+                                  err instanceof Error
+                                    ? err.message
+                                    : 'Unable to remove saved question.'
+                                );
+                              }
+                            }}
+                            aria-label="Unsave question"
+                            className="min-h-[40px] min-w-[40px] flex items-center justify-center text-amber-500 hover:text-rose-500 cursor-pointer"
+                          >
+                            <Bookmark className="h-4 w-4" fill="currentColor" />
+                          </button>
+                          <CardContextMenu
+                            triggerLabel="Question options"
+                            shareUrl={getQuestionShareUrl(sq.questionId)}
+                            items={[
+                              {
+                                label: 'Open thread',
+                                icon: <ExternalLink className="h-4 w-4 text-slate-400" />,
+                                onClick: () => navigate(`/questions/${sq.questionId}`),
+                              },
+                            ]}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -469,10 +593,16 @@ export function SavedAndCollectionsPage({
                 </div>
               </div>
 
+              {colError && (
+                <p className="text-xs text-rose-500" role="alert">
+                  {colError}
+                </p>
+              )}
+
               <button
                 type="submit"
                 disabled={createCollectionMutation.isPending}
-                className="w-full min-h-[44px] rounded-xl bg-cyan-600 dark:bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-white dark:text-slate-950 cursor-pointer"
+                className="w-full min-h-[44px] rounded-xl bg-cyan-600 dark:bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-white dark:text-slate-950 disabled:opacity-50 cursor-pointer"
               >
                 {createCollectionMutation.isPending ? 'Creating...' : 'Create Collection'}
               </button>

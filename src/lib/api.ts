@@ -11,6 +11,7 @@ import type {
 } from '../types';
 
 let memoryBearerToken: string | null = null;
+let authExpiredHandler: (() => void) | null = null;
 
 export function setInMemoryToken(token: string | null) {
   memoryBearerToken = token;
@@ -18,6 +19,10 @@ export function setInMemoryToken(token: string | null) {
 
 export function getInMemoryToken(): string | null {
   return memoryBearerToken;
+}
+
+export function registerAuthExpiredHandler(handler: () => void) {
+  authExpiredHandler = handler;
 }
 
 export class ApiError extends Error {
@@ -44,14 +49,33 @@ export async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${memoryBearerToken}`;
   }
 
-  const res = await fetch(`/api${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+      signal: options.signal ?? AbortSignal.timeout(20000),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      throw new ApiError('Request timed out. Please try again.', 408);
+    }
+    throw new ApiError(
+      'Unable to reach the server. Please check your connection and try again.',
+      0
+    );
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    const isAuthCredentialCheck =
+      path.startsWith('/auth/login') ||
+      path.startsWith('/auth/change-password') ||
+      path.startsWith('/auth/google');
+    if (res.status === 401 && !isAuthCredentialCheck && authExpiredHandler) {
+      authExpiredHandler();
+    }
     throw new ApiError(
       data?.error || 'Something went wrong. Your content is safe. Try again.',
       res.status,
@@ -99,10 +123,13 @@ export const authApi = {
     recoveryCode: string;
     newPassword: string;
   }) =>
-    apiRequest<{ ok: boolean; message: string }>('/auth/password-reset/confirm', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+    apiRequest<{ ok: boolean; message: string; newRecoveryCode?: string }>(
+      '/auth/password-reset/confirm',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    ),
   changePassword: (payload: { currentPassword: string; newPassword: string }) =>
     apiRequest<{ ok: boolean }>('/auth/change-password', {
       method: 'POST',

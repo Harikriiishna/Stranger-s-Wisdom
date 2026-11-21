@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Bookmark, Feather, Sparkles } from 'lucide-react';
+import { ArrowRight, Bookmark, Feather, Sparkles, X } from 'lucide-react';
+import { CardContextMenu } from '../components/CardContextMenu';
 import { Layout } from '../components/Layout';
 import { QuestionCard } from '../components/QuestionCard';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { answersApi, questionsApi } from '../lib/api';
+import { getAnswerShareUrl } from '../lib/clipboard';
 import { formatTimeAgo, getGreeting } from '../lib/format';
 import type { QuestionCardItem } from '../types';
 
@@ -14,6 +16,7 @@ export function HomePage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['home'],
@@ -26,6 +29,7 @@ export function HomePage() {
         navigate('/signin');
         return;
       }
+      setActionError(null);
       if (q.isSaved) {
         await questionsApi.unsave(q.id);
       } else {
@@ -35,6 +39,10 @@ export function HomePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['home'] });
       queryClient.invalidateQueries({ queryKey: ['saved'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to update saved question.');
     },
   });
 
@@ -44,6 +52,7 @@ export function HomePage() {
         navigate('/signin');
         return;
       }
+      setActionError(null);
       if (isSaved) {
         await answersApi.unsave(id);
       } else {
@@ -53,12 +62,32 @@ export function HomePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['home'] });
       queryClient.invalidateQueries({ queryKey: ['saved'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to update saved wisdom.');
     },
   });
 
   return (
     <Layout>
-      <div className="space-y-10">
+      <div className="space-y-10 min-w-0">
+        {actionError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-rose-500/35 bg-rose-500/10 px-4 py-3 text-xs text-rose-700 dark:text-rose-200"
+          >
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              aria-label="Dismiss error"
+              className="min-h-[32px] min-w-[32px] flex items-center justify-center cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         {/* Hero Greeting */}
         <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-indigo-950/90 bg-gradient-to-br from-white via-slate-50 to-cyan-50/40 dark:from-[#0E1630] dark:via-[#0B1124] dark:to-[#11183A] p-6 sm:p-10">
           <div className="max-w-2xl space-y-4">
@@ -127,7 +156,7 @@ export function HomePage() {
             )}
 
             {/* B. Wisdom from Strangers */}
-            {data.wisdomFromStrangers.length > 0 && (
+            {(data.wisdomFromStrangers ?? []).length > 0 && (
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold tracking-wide text-slate-500 dark:text-slate-400">
@@ -145,9 +174,9 @@ export function HomePage() {
                   {data.wisdomFromStrangers.map((item) => (
                     <article
                       key={item.id}
-                      className="rounded-2xl border border-slate-200/90 dark:border-indigo-950/80 bg-white dark:bg-[#0D1326] p-5 flex flex-col justify-between gap-4"
+                      className="min-w-0 rounded-2xl border border-slate-200/90 dark:border-indigo-950/80 bg-white dark:bg-[#0D1326] p-5 flex flex-col justify-between gap-4"
                     >
-                      <div className="space-y-2.5">
+                      <div className="space-y-2.5 min-w-0">
                         <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
                           <span className="font-medium text-violet-700 dark:text-violet-300">
                             {item.answerType}
@@ -156,38 +185,60 @@ export function HomePage() {
                             {formatTimeAgo(item.createdAt)}
                           </span>
                         </div>
-                        <p className="font-wisdom text-[15px] leading-relaxed text-slate-800 dark:text-slate-200 line-clamp-4">
+                        <p className="font-wisdom text-[15px] leading-relaxed text-slate-800 dark:text-slate-200 line-clamp-4 break-words">
                           “{item.body}”
                         </p>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-100 dark:border-indigo-950/60 flex items-center justify-between gap-3">
+                      <div className="pt-3 border-t border-slate-100 dark:border-indigo-950/60 flex items-center justify-between gap-2 min-w-0">
                         <Link
-                          to={`/questions/${item.questionId}`}
-                          className="text-xs text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 truncate"
+                          to={`/questions/${item.questionId}#answer-${item.id}`}
+                          className="min-w-0 text-xs text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 truncate"
                         >
                           On: {item.questionTitle}
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            saveAnswerMutation.mutate({
-                              id: item.id,
-                              isSaved: item.isSaved,
-                            })
-                          }
-                          aria-label={item.isSaved ? 'Unsave wisdom' : 'Save wisdom'}
-                          className={`min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl shrink-0 cursor-pointer ${
-                            item.isSaved
-                              ? 'text-amber-500'
-                              : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                          }`}
-                        >
-                          <Bookmark
-                            className="h-4 w-4"
-                            fill={item.isSaved ? 'currentColor' : 'none'}
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              saveAnswerMutation.mutate({
+                                id: item.id,
+                                isSaved: item.isSaved,
+                              })
+                            }
+                            aria-label={item.isSaved ? 'Unsave wisdom' : 'Save wisdom'}
+                            className={`min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl shrink-0 cursor-pointer ${
+                              item.isSaved
+                                ? 'text-amber-500'
+                                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                            }`}
+                          >
+                            <Bookmark
+                              className="h-4 w-4"
+                              fill={item.isSaved ? 'currentColor' : 'none'}
+                            />
+                          </button>
+                          <CardContextMenu
+                            triggerLabel="Answer options"
+                            shareUrl={getAnswerShareUrl(item.questionId, item.id)}
+                            items={[
+                              {
+                                label: item.isSaved ? 'Remove from saved' : 'Save wisdom',
+                                icon: (
+                                  <Bookmark
+                                    className="h-4 w-4 text-amber-500"
+                                    fill={item.isSaved ? 'currentColor' : 'none'}
+                                  />
+                                ),
+                                onClick: () =>
+                                  saveAnswerMutation.mutate({
+                                    id: item.id,
+                                    isSaved: item.isSaved,
+                                  }),
+                              },
+                            ]}
                           />
-                        </button>
+                        </div>
                       </div>
                     </article>
                   ))}
@@ -208,7 +259,7 @@ export function HomePage() {
                   See all unanswered
                 </Link>
               </div>
-              {data.unansweredQuestions.length === 0 ? (
+              {(data.unansweredQuestions ?? []).length === 0 ? (
                 <EmptyState
                   title="Every recent question has received a voice."
                   subtitle="You can explore older discussions or share what is on your mind."
@@ -217,7 +268,7 @@ export function HomePage() {
                 />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {data.unansweredQuestions.map((q) => (
+                  {(data.unansweredQuestions ?? []).map((q) => (
                     <QuestionCard
                       key={q.id}
                       question={q}
@@ -249,40 +300,49 @@ export function HomePage() {
                   </blockquote>
                   <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
                     <Link
-                      to={`/questions/${data.differentPerspective.questionId}`}
+                      to={`/questions/${data.differentPerspective.questionId}#answer-${data.differentPerspective.id}`}
                       className="text-sm font-medium text-cyan-700 dark:text-cyan-400 hover:underline"
                     >
                       Read original question →
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        saveAnswerMutation.mutate({
-                          id: data.differentPerspective!.id,
-                          isSaved: data.differentPerspective!.isSaved,
-                        })
-                      }
-                      className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-indigo-800 px-3.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/60 cursor-pointer"
-                    >
-                      <Bookmark
-                        className="h-3.5 w-3.5 text-amber-500"
-                        fill={data.differentPerspective.isSaved ? 'currentColor' : 'none'}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          saveAnswerMutation.mutate({
+                            id: data.differentPerspective!.id,
+                            isSaved: data.differentPerspective!.isSaved,
+                          })
+                        }
+                        className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-indigo-800 px-3.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/60 cursor-pointer"
+                      >
+                        <Bookmark
+                          className="h-3.5 w-3.5 text-amber-500"
+                          fill={data.differentPerspective.isSaved ? 'currentColor' : 'none'}
+                        />
+                        {data.differentPerspective.isSaved ? 'Saved' : 'Save perspective'}
+                      </button>
+                      <CardContextMenu
+                        triggerLabel="Answer options"
+                        shareUrl={getAnswerShareUrl(
+                          data.differentPerspective.questionId,
+                          data.differentPerspective.id
+                        )}
                       />
-                      {data.differentPerspective.isSaved ? 'Saved' : 'Save perspective'}
-                    </button>
+                    </div>
                   </div>
                 </div>
               </section>
             )}
 
             {/* E. Quiet Moments */}
-            {data.quietMoments.length > 0 && (
+            {(data.quietMoments ?? []).length > 0 && (
               <section className="space-y-4">
                 <h2 className="text-sm font-semibold tracking-wide text-slate-500 dark:text-slate-400">
                   Quiet Moments
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {data.quietMoments.map((q) => (
+                  {(data.quietMoments ?? []).map((q) => (
                     <QuestionCard
                       key={q.id}
                       question={q}

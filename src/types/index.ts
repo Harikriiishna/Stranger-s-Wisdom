@@ -12,6 +12,15 @@ export interface PrivacySettings {
   blockedQuestionIds: string[];
 }
 
+export type ThemeMode =
+  | 'dark'
+  | 'light'
+  | 'system'
+  | 'amber-dusk'
+  | 'forest-mist'
+  | 'velvet-violet'
+  | 'parchment';
+
 export interface UserProfile {
   id: string;
   email: string | null;
@@ -20,7 +29,7 @@ export interface UserProfile {
   role: 'member' | 'moderator' | 'admin';
   notificationSettings: NotificationSettings;
   privacySettings: PrivacySettings;
-  theme: 'dark' | 'light' | 'system';
+  theme: ThemeMode;
   accountStatus: 'active' | 'suspended' | 'deleted';
   createdAt: string;
 }

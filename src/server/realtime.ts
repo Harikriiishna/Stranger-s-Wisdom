@@ -26,7 +26,7 @@ export function setupRealtimeServer(httpServer: HttpServer): void {
       const cookies = parseCookies(req.headers.cookie);
       const cookieToken = cookies[SESSION_COOKIE_NAME];
       const resolved = await resolveUserFromTokenOrCookie(tokenParam, cookieToken);
-      if (resolved) {
+      if (resolved && resolved.profile.accountStatus === 'active') {
         client.userId = resolved.profile.id;
       }
     } catch {
@@ -40,10 +40,14 @@ export function setupRealtimeServer(httpServer: HttpServer): void {
         const msg = JSON.parse(raw.toString()) as { type?: string; token?: string };
         if (msg.type === 'auth' && typeof msg.token === 'string') {
           const resolved = await resolveUserFromTokenOrCookie(msg.token, undefined);
-          if (resolved) {
+          if (resolved && resolved.profile.accountStatus === 'active') {
             client.userId = resolved.profile.id;
             ws.send(JSON.stringify({ type: 'authenticated' }));
+          } else {
+            client.userId = undefined;
           }
+        } else if (msg.type === 'logout') {
+          client.userId = undefined;
         } else if (msg.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
         }

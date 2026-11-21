@@ -287,6 +287,9 @@ router.post('/auth/anonymous', async (req: Request, res: Response) => {
 });
 
 router.get('/auth/session', optionalAuth, async (req: AuthRequest, res: Response) => {
+  if (req.suspended) {
+    return res.json({ authenticated: false, profile: null, suspended: true });
+  }
   if (!req.profile) {
     return res.json({ authenticated: false, profile: null });
   }
@@ -355,6 +358,13 @@ router.post('/auth/password-reset/confirm', async (req: Request, res: Response) 
     }
 
     const email = parsed.data.email.toLowerCase();
+    const limit = checkRateLimit(`pwconfirm:${email}:${getClientIp(req)}`, 5, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      return res.status(429).json({
+        error: `Too many reset attempts. Please try again in ${limit.retryAfterSeconds}s.`,
+      });
+    }
+
     const [found] = await db
       .select()
       .from(profiles)
@@ -366,7 +376,7 @@ router.post('/auth/password-reset/confirm', async (req: Request, res: Response) 
     }
 
     const providedHash = hashToken(parsed.data.recoveryCode.toUpperCase());
-    const matchesRecovery = found.recoveryCodeHash === providedHash;
+    const matchesRecovery = Boolean(found.recoveryCodeHash && found.recoveryCodeHash === providedHash);
 
     const [activeReset] = await db
       .select()
@@ -386,10 +396,13 @@ router.post('/auth/password-reset/confirm', async (req: Request, res: Response) 
       return res.status(400).json({ error: 'Invalid or expired recovery code.' });
     }
 
+    const newRecoveryCode = crypto.randomBytes(6).toString('hex').toUpperCase();
+
     await db
       .update(profiles)
       .set({
         passwordHash: hashPassword(parsed.data.newPassword),
+        recoveryCodeHash: hashToken(newRecoveryCode),
         updatedAt: new Date(),
       })
       .where(eq(profiles.id, found.id));
@@ -401,7 +414,11 @@ router.post('/auth/password-reset/confirm', async (req: Request, res: Response) 
         .where(eq(passwordResets.id, activeReset.id));
     }
 
-    return res.json({ ok: true, message: 'Your password has been updated. You can now sign in.' });
+    return res.json({
+      ok: true,
+      message: 'Your password has been updated. Save your new recovery code below.',
+      newRecoveryCode,
+    });
   } catch (err) {
     console.error('Password reset confirm error:', err);
     return res.status(500).json({ error: 'Unable to reset password.' });
@@ -488,7 +505,17 @@ router.get('/profile', requireAuth, async (req: AuthRequest, res: Response) => {
 
 const profileUpdateSchema = z.object({
   privateAlias: z.string().trim().min(2).max(40).optional(),
-  theme: z.enum(['dark', 'light', 'system']).optional(),
+  theme: z
+    .enum([
+      'dark',
+      'light',
+      'system',
+      'amber-dusk',
+      'forest-mist',
+      'velvet-violet',
+      'parchment',
+    ])
+    .optional(),
   notificationSettings: z
     .object({
       answers: z.boolean(),
@@ -541,6 +568,7 @@ router.patch('/profile', requireAuth, async (req: AuthRequest, res: Response) =>
       .where(eq(profiles.id, current.id))
       .returning();
 
+    sendUserEvent(updated.id, 'user:synced', { scope: 'profile' });
     return res.json({ profile: sanitizePrivateProfile(updated) });
   } catch (err) {
     console.error('Profile update failed:', err);
@@ -856,7 +884,8 @@ router.get('/questions', optionalAuth, async (req: AuthRequest, res: Response) =
         or(
           ilike(questions.title, pattern),
           ilike(questions.body, pattern),
-          ilike(questions.category, pattern)
+          ilike(questions.category, pattern),
+          sql`${questions.tags}::text ILIKE ${pattern}`
         )!
       );
     }
@@ -888,7 +917,7 @@ router.get('/questions', optionalAuth, async (req: AuthRequest, res: Response) =
     } else if (sort === 'relevant') {
       cards = [...cards].sort(
         (a, b) =>
-          (b.answerCount > 0 ? 1 : 2) - (a.answerCount > 0 ? 1 : 2) ||
+          (a.answerCount > 0 ? 0 : 1) - (b.answerCount > 0 ? 0 : 1) ||
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
     }
@@ -1306,18 +1335,10 @@ router.post('/questions/:id/answers', requireAuth, async (req: AuthRequest, res:
       });
     }
 
-    if (q.isOneVoice) {
-      const [delivery] = await db
-        .select()
-        .from(oneVoiceDeliveries)
-        .where(eq(oneVoiceDeliveries.questionId, q.id))
-        .limit(1);
-
-      if (delivery && delivery.status !== 'waiting') {
-        return res.status(409).json({
-          error: 'This One Voice question has already received its single response.',
-        });
-      }
+    if (q.isOneVoice && q.authorId === profile.id) {
+      return res.status(403).json({
+        error: 'You cannot answer your own One Voice request.',
+      });
     }
 
     const qualityScore = computeAnswerQualityScore(
@@ -1328,42 +1349,63 @@ router.post('/questions/:id/answers', requireAuth, async (req: AuthRequest, res:
     );
 
     const answerId = crypto.randomUUID();
-    const [created] = await db
-      .insert(answers)
-      .values({
-        id: answerId,
-        questionId: q.id,
-        authorId: profile.id,
-        parentAnswerId: parsed.data.parentAnswerId ?? null,
-        body: parsed.data.body,
-        answerType: parsed.data.answerType,
-        qualityScore,
-        status: 'active',
-      })
-      .returning();
+    const created = await db.transaction(async (tx) => {
+      if (q.isOneVoice) {
+        const [claimed] = await tx
+          .update(oneVoiceDeliveries)
+          .set({
+            status: 'answer_received',
+            senderId: profile.id,
+          })
+          .where(
+            and(
+              eq(oneVoiceDeliveries.questionId, q.id),
+              eq(oneVoiceDeliveries.status, 'waiting')
+            )
+          )
+          .returning();
 
-    if (q.status === 'open') {
-      await db
-        .update(questions)
-        .set({ status: 'answered', updatedAt: new Date() })
-        .where(eq(questions.id, q.id));
-    }
+        if (!claimed) {
+          throw new Error('ONE_VOICE_ALREADY_CLAIMED');
+        }
+      }
+
+      const [inserted] = await tx
+        .insert(answers)
+        .values({
+          id: answerId,
+          questionId: q.id,
+          authorId: profile.id,
+          parentAnswerId: parsed.data.parentAnswerId ?? null,
+          body: parsed.data.body,
+          answerType: parsed.data.answerType,
+          qualityScore,
+          status: 'active',
+        })
+        .returning();
+
+      if (q.status === 'open') {
+        await tx
+          .update(questions)
+          .set({ status: 'answered', updatedAt: new Date() })
+          .where(eq(questions.id, q.id));
+      }
+
+      if (q.isOneVoice) {
+        await tx
+          .update(oneVoiceDeliveries)
+          .set({
+            answerId: inserted.id,
+            status: 'delivered',
+            deliveredAt: new Date(),
+          })
+          .where(eq(oneVoiceDeliveries.questionId, q.id));
+      }
+
+      return inserted;
+    });
 
     if (q.isOneVoice) {
-      await db
-        .update(oneVoiceDeliveries)
-        .set({
-          answerId: created.id,
-          senderId: profile.id,
-          status: 'delivered',
-          deliveredAt: new Date(),
-        })
-        .where(
-          and(
-            eq(oneVoiceDeliveries.questionId, q.id),
-            eq(oneVoiceDeliveries.status, 'waiting')
-          )
-        );
       sendUserEvent(q.authorId, 'one_voice:updated', {
         questionId: q.id,
         status: 'delivered',
@@ -1430,6 +1472,11 @@ router.post('/questions/:id/answers', requireAuth, async (req: AuthRequest, res:
       crisisResources: safety.crisisDetected ? CRISIS_RESOURCES : null,
     });
   } catch (err) {
+    if (err instanceof Error && err.message === 'ONE_VOICE_ALREADY_CLAIMED') {
+      return res.status(409).json({
+        error: 'This One Voice question has already received its single response.',
+      });
+    }
     console.error('Create answer failed:', err);
     return res.status(500).json({ error: 'Unable to post your answer. Please try again.' });
   }
@@ -1894,7 +1941,7 @@ router.get('/drafts', requireAuth, async (req: AuthRequest, res: Response) => {
 router.post('/drafts', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.profile!.id;
-    const id = typeof req.body?.id === 'string' && req.body.id ? req.body.id : crypto.randomUUID();
+    const requestedId = typeof req.body?.id === 'string' && req.body.id.trim() ? req.body.id.trim() : null;
     const title = String(req.body?.title || '').slice(0, 220);
     const body = String(req.body?.body || '').slice(0, 3000);
     const category = QUESTION_CATEGORIES.includes(req.body?.category)
@@ -1907,10 +1954,40 @@ router.post('/drafts', requireAuth, async (req: AuthRequest, res: Response) => {
       ? req.body.tags.map(String).slice(0, 5)
       : [];
 
-    const [saved] = await db
+    if (requestedId) {
+      const [existing] = await db
+        .select()
+        .from(questionDrafts)
+        .where(eq(questionDrafts.id, requestedId))
+        .limit(1);
+
+      if (existing && existing.userId !== userId) {
+        return res.status(403).json({ error: 'You do not have permission to edit this draft.' });
+      }
+
+      if (existing) {
+        const [updated] = await db
+          .update(questionDrafts)
+          .set({
+            title,
+            body,
+            category,
+            questionType,
+            tags,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(questionDrafts.id, requestedId), eq(questionDrafts.userId, userId)))
+          .returning();
+
+        sendUserEvent(userId, 'user:synced', { scope: 'drafts' });
+        return res.status(200).json({ draft: updated });
+      }
+    }
+
+    const [created] = await db
       .insert(questionDrafts)
       .values({
-        id,
+        id: crypto.randomUUID(),
         userId,
         title,
         body,
@@ -1919,20 +1996,10 @@ router.post('/drafts', requireAuth, async (req: AuthRequest, res: Response) => {
         tags,
         updatedAt: new Date(),
       })
-      .onConflictDoUpdate({
-        target: questionDrafts.id,
-        set: {
-          title,
-          body,
-          category,
-          questionType,
-          tags,
-          updatedAt: new Date(),
-        },
-      })
       .returning();
 
-    return res.status(201).json({ draft: saved });
+    sendUserEvent(userId, 'user:synced', { scope: 'drafts' });
+    return res.status(201).json({ draft: created });
   } catch (err) {
     console.error('Save draft failed:', err);
     return res.status(500).json({ error: 'Unable to save draft.' });
@@ -1942,9 +2009,11 @@ router.post('/drafts', requireAuth, async (req: AuthRequest, res: Response) => {
 router.delete('/drafts/:id', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const id = String(req.params.id);
+    const userId = req.profile!.id;
     await db
       .delete(questionDrafts)
-      .where(and(eq(questionDrafts.id, id), eq(questionDrafts.userId, req.profile!.id)));
+      .where(and(eq(questionDrafts.id, id), eq(questionDrafts.userId, userId)));
+    sendUserEvent(userId, 'user:synced', { scope: 'drafts' });
     return res.json({ ok: true });
   } catch (err) {
     console.error('Delete draft failed:', err);
@@ -2030,10 +2099,19 @@ router.post('/saved/questions/:id', requireAuth, async (req: AuthRequest, res: R
   try {
     const userId = req.profile!.id;
     const questionId = String(req.params.id);
+    const [q] = await db
+      .select({ id: questions.id, status: questions.status })
+      .from(questions)
+      .where(eq(questions.id, questionId))
+      .limit(1);
+    if (!q || q.status === 'deleted' || q.status === 'hidden') {
+      return res.status(404).json({ error: 'Question not found.' });
+    }
     await db
       .insert(savedQuestions)
       .values({ id: crypto.randomUUID(), userId, questionId })
       .onConflictDoNothing();
+    sendUserEvent(userId, 'user:synced', { scope: 'saved' });
     return res.json({ saved: true });
   } catch (err) {
     console.error('Save question failed:', err);
@@ -2053,6 +2131,7 @@ router.delete('/saved/questions/:id', requireAuth, async (req: AuthRequest, res:
           eq(savedQuestions.questionId, questionId)
         )
       );
+    sendUserEvent(userId, 'user:synced', { scope: 'saved' });
     return res.json({ saved: false });
   } catch (err) {
     console.error('Unsave question failed:', err);
@@ -2064,10 +2143,19 @@ router.post('/saved/answers/:id', requireAuth, async (req: AuthRequest, res: Res
   try {
     const userId = req.profile!.id;
     const answerId = String(req.params.id);
+    const [a] = await db
+      .select({ id: answers.id, status: answers.status })
+      .from(answers)
+      .where(eq(answers.id, answerId))
+      .limit(1);
+    if (!a || a.status !== 'active') {
+      return res.status(404).json({ error: 'Answer not found.' });
+    }
     await db
       .insert(savedAnswers)
       .values({ id: crypto.randomUUID(), userId, answerId })
       .onConflictDoNothing();
+    sendUserEvent(userId, 'user:synced', { scope: 'saved' });
     return res.json({ saved: true });
   } catch (err) {
     console.error('Save answer failed:', err);
@@ -2087,6 +2175,7 @@ router.delete('/saved/answers/:id', requireAuth, async (req: AuthRequest, res: R
           eq(savedAnswers.answerId, answerId)
         )
       );
+    sendUserEvent(userId, 'user:synced', { scope: 'saved' });
     return res.json({ saved: false });
   } catch (err) {
     console.error('Unsave answer failed:', err);
@@ -2117,6 +2206,7 @@ router.post('/collections', requireAuth, async (req: AuthRequest, res: Response)
       })
       .returning();
 
+    sendUserEvent(req.profile!.id, 'user:synced', { scope: 'saved' });
     return res.status(201).json({ collection: { ...created, answerIds: [] } });
   } catch (err) {
     console.error('Create collection failed:', err);
@@ -2130,6 +2220,7 @@ router.delete('/collections/:id', requireAuth, async (req: AuthRequest, res: Res
     await db
       .delete(answerCollections)
       .where(and(eq(answerCollections.id, id), eq(answerCollections.userId, req.profile!.id)));
+    sendUserEvent(req.profile!.id, 'user:synced', { scope: 'saved' });
     return res.json({ ok: true });
   } catch (err) {
     console.error('Delete collection failed:', err);
@@ -2152,6 +2243,15 @@ router.post('/collections/:id/answers/:answerId', requireAuth, async (req: AuthR
       return res.status(404).json({ error: 'Collection not found.' });
     }
 
+    const [ans] = await db
+      .select({ id: answers.id, status: answers.status })
+      .from(answers)
+      .where(eq(answers.id, answerId))
+      .limit(1);
+    if (!ans || ans.status !== 'active') {
+      return res.status(404).json({ error: 'Answer not found.' });
+    }
+
     await db
       .insert(savedAnswers)
       .values({ id: crypto.randomUUID(), userId, answerId })
@@ -2162,6 +2262,7 @@ router.post('/collections/:id/answers/:answerId', requireAuth, async (req: AuthR
       .values({ id: crypto.randomUUID(), collectionId: id, answerId })
       .onConflictDoNothing();
 
+    sendUserEvent(userId, 'user:synced', { scope: 'saved' });
     return res.json({ ok: true });
   } catch (err) {
     console.error('Add to collection failed:', err);
@@ -2278,6 +2379,27 @@ router.post('/reports', requireAuth, async (req: AuthRequest, res: Response) => 
       return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid report.' });
     }
 
+    if (parsed.data.contentId !== 'general-safety-report') {
+      const [existingReport] = await db
+        .select({ id: reports.id })
+        .from(reports)
+        .where(
+          and(
+            eq(reports.reporterId, userId),
+            eq(reports.contentType, parsed.data.contentType),
+            eq(reports.contentId, parsed.data.contentId),
+            eq(reports.status, 'pending')
+          )
+        )
+        .limit(1);
+
+      if (existingReport) {
+        return res.status(409).json({
+          error: 'You have already submitted a report for this item. Moderators will review it shortly.',
+        });
+      }
+    }
+
     const [created] = await db
       .insert(reports)
       .values({
@@ -2291,11 +2413,26 @@ router.post('/reports', requireAuth, async (req: AuthRequest, res: Response) => 
       })
       .returning();
 
-    if (parsed.data.contentType === 'question') {
+    if (parsed.data.contentType === 'question' && parsed.data.contentId !== 'general-safety-report') {
       await db
         .update(questions)
         .set({ isFlagged: true })
         .where(eq(questions.id, parsed.data.contentId));
+    } else if (
+      parsed.data.contentType === 'answer' &&
+      parsed.data.reason === 'Self-harm concerns'
+    ) {
+      const [ansRow] = await db
+        .select({ questionId: answers.questionId })
+        .from(answers)
+        .where(eq(answers.id, parsed.data.contentId))
+        .limit(1);
+      if (ansRow) {
+        await db
+          .update(questions)
+          .set({ isFlagged: true })
+          .where(eq(questions.id, ansRow.questionId));
+      }
     }
 
     return res.status(201).json({
@@ -2338,22 +2475,32 @@ router.post('/moderation/claim', requireAuth, async (req: AuthRequest, res: Resp
       });
     }
 
-    const [{ value: modCount }] = await db
-      .select({ value: count() })
-      .from(profiles)
-      .where(or(eq(profiles.role, 'moderator'), eq(profiles.role, 'admin')));
+    const updated = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(729401)`);
 
-    if (modCount > 0) {
+      const [{ value: modCount }] = await tx
+        .select({ value: count() })
+        .from(profiles)
+        .where(or(eq(profiles.role, 'moderator'), eq(profiles.role, 'admin')));
+
+      if (modCount > 0) {
+        return null;
+      }
+
+      const [promoted] = await tx
+        .update(profiles)
+        .set({ role: 'moderator', updatedAt: new Date() })
+        .where(eq(profiles.id, req.profile!.id))
+        .returning();
+
+      return promoted;
+    });
+
+    if (!updated) {
       return res.status(403).json({
         error: 'Moderator access has already been claimed.',
       });
     }
-
-    const [updated] = await db
-      .update(profiles)
-      .set({ role: 'moderator', updatedAt: new Date() })
-      .where(eq(profiles.id, req.profile!.id))
-      .returning();
 
     return res.json({ profile: sanitizePrivateProfile(updated) });
   } catch (err) {

@@ -166,6 +166,7 @@ export type ProfileRecord = typeof profiles.$inferSelect;
 export interface AuthRequest extends Request {
   profile?: ProfileRecord;
   authMethod?: 'bearer' | 'firebase' | 'cookie';
+  suspended?: boolean;
 }
 
 export async function resolveUserFromTokenOrCookie(
@@ -274,12 +275,14 @@ export const optionalAuth = async (
     const resolved = await resolveUserFromTokenOrCookie(bearer, cookieToken);
     if (resolved) {
       if (resolved.profile.accountStatus === 'suspended') {
-        return res
-          .status(403)
-          .json({ error: 'This account has been suspended for safety violations.' });
+        req.suspended = true;
+        if (resolved.authMethod === 'cookie') {
+          clearSessionCookie(res);
+        }
+      } else {
+        req.profile = resolved.profile;
+        req.authMethod = resolved.authMethod;
       }
-      req.profile = resolved.profile;
-      req.authMethod = resolved.authMethod;
     }
     next();
   } catch (err) {
@@ -294,6 +297,11 @@ export const requireAuth = async (
   next: NextFunction
 ) => {
   await optionalAuth(req, res, () => {
+    if (req.suspended) {
+      return res
+        .status(403)
+        .json({ error: 'This account has been suspended for safety violations.' });
+    }
     if (!req.profile) {
       return res.status(401).json({ error: 'Authentication required.' });
     }

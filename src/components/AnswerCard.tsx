@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Bookmark,
   Check,
   Edit3,
+  ExternalLink,
   Flag,
   FolderPlus,
   Heart,
   Trash2,
 } from 'lucide-react';
-import { formatTimeAgo, REACTION_TYPES } from '../lib/format';
+import { getAnswerShareUrl } from '../lib/clipboard';
+import { ANSWER_TYPES, formatTimeAgo, REACTION_TYPES } from '../lib/format';
 import type { AnswerItem, CollectionItem } from '../types';
+import { CardContextMenu, type ContextMenuItem } from './CardContextMenu';
 
 export function AnswerCard({
   answer,
@@ -20,6 +24,7 @@ export function AnswerCard({
   onDelete,
   collections,
   onAddToCollection,
+  highlighted = false,
 }: {
   answer: AnswerItem;
   onReact?: (answerId: string, reactionType: string) => void;
@@ -29,28 +34,90 @@ export function AnswerCard({
   onDelete?: (answerId: string) => Promise<void>;
   collections?: CollectionItem[];
   onAddToCollection?: (collectionId: string, answerId: string) => Promise<void>;
+  highlighted?: boolean;
 }) {
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [editBody, setEditBody] = useState(answer.body);
+  const [editType, setEditType] = useState(answer.answerType);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [showCollections, setShowCollections] = useState(false);
   const [addedCollectionId, setAddedCollectionId] = useState<string | null>(null);
+  const [collectionError, setCollectionError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSaveEdit = async () => {
-    if (!onEdit || editBody.trim().length < 20) return;
+    if (!onEdit) return;
+    if (editBody.trim().length < 20) {
+      setEditError('Please keep at least 20 characters in your answer.');
+      return;
+    }
+    setEditError(null);
     setSavingEdit(true);
     try {
-      await onEdit(answer, editBody.trim(), answer.answerType);
+      await onEdit(answer, editBody.trim(), editType);
       setEditing(false);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Unable to save changes.');
     } finally {
       setSavingEdit(false);
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!onDelete) return;
+    setDeleting(true);
+    setEditError(null);
+    try {
+      await onDelete(answer.id);
+      setConfirmDelete(false);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Unable to delete answer.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const contextItems: ContextMenuItem[] = [
+    {
+      label: 'View thread',
+      icon: <ExternalLink className="h-4 w-4 text-slate-400" />,
+      onClick: () => navigate(`/questions/${answer.questionId}#answer-${answer.id}`),
+    },
+  ];
+  if (onToggleSave) {
+    contextItems.push({
+      label: answer.isSaved ? 'Remove from saved' : 'Save wisdom',
+      icon: (
+        <Bookmark
+          className="h-4 w-4 text-amber-500"
+          fill={answer.isSaved ? 'currentColor' : 'none'}
+        />
+      ),
+      onClick: () => onToggleSave(answer),
+    });
+  }
+  if (!answer.isOwner && onReport) {
+    contextItems.push({
+      label: 'Report answer',
+      icon: <Flag className="h-4 w-4 text-amber-500" />,
+      onClick: () => onReport(answer.id),
+    });
+  }
+
   return (
-    <article className="rounded-2xl border border-slate-200/90 dark:border-indigo-950/80 bg-white dark:bg-[#0D1326] p-5 sm:p-6">
+    <article
+      id={`answer-${answer.id}`}
+      className={`rounded-2xl border bg-white dark:bg-[#0D1326] p-5 sm:p-6 transition-shadow ${
+        highlighted
+          ? 'border-cyan-500/70 ring-2 ring-cyan-500/20'
+          : 'border-slate-200/90 dark:border-indigo-950/80'
+      }`}
+    >
       <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <span className="font-semibold text-violet-700 dark:text-violet-300">
             {answer.answerType}
           </span>
@@ -60,7 +127,7 @@ export function AnswerCard({
           <span className="font-tabular">{formatTimeAgo(answer.createdAt)}</span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {onToggleSave && (
             <button
               type="button"
@@ -82,7 +149,10 @@ export function AnswerCard({
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setShowCollections((v) => !v)}
+                onClick={() => {
+                  setCollectionError(null);
+                  setShowCollections((v) => !v);
+                }}
                 aria-label="Add to collection"
                 className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors cursor-pointer"
               >
@@ -93,14 +163,26 @@ export function AnswerCard({
                   <p className="px-2.5 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                     Add to collection
                   </p>
+                  {collectionError && (
+                    <p className="px-2.5 py-1 text-xs text-rose-500" role="alert">
+                      {collectionError}
+                    </p>
+                  )}
                   {collections.map((col) => (
                     <button
                       key={col.id}
                       type="button"
                       onClick={async () => {
-                        await onAddToCollection(col.id, answer.id);
-                        setAddedCollectionId(col.id);
-                        setTimeout(() => setShowCollections(false), 600);
+                        setCollectionError(null);
+                        try {
+                          await onAddToCollection(col.id, answer.id);
+                          setAddedCollectionId(col.id);
+                          setTimeout(() => setShowCollections(false), 600);
+                        } catch (err) {
+                          setCollectionError(
+                            err instanceof Error ? err.message : 'Unable to add to collection.'
+                          );
+                        }
                       }}
                       className="w-full flex items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/70 cursor-pointer"
                     >
@@ -118,7 +200,13 @@ export function AnswerCard({
           {answer.isOwner && onEdit && (
             <button
               type="button"
-              onClick={() => setEditing((v) => !v)}
+              onClick={() => {
+                setEditBody(answer.body);
+                setEditType(answer.answerType);
+                setEditError(null);
+                setConfirmDelete(false);
+                setEditing((v) => !v);
+              }}
               aria-label="Edit answer"
               className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors cursor-pointer"
             >
@@ -128,7 +216,11 @@ export function AnswerCard({
           {answer.isOwner && onDelete && (
             <button
               type="button"
-              onClick={() => onDelete(answer.id)}
+              onClick={() => {
+                setEditing(false);
+                setEditError(null);
+                setConfirmDelete((v) => !v);
+              }}
               aria-label="Delete answer"
               className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
             >
@@ -145,21 +237,81 @@ export function AnswerCard({
               <Flag className="h-4 w-4" />
             </button>
           )}
+          <CardContextMenu
+            triggerLabel="Answer options"
+            shareUrl={getAnswerShareUrl(answer.questionId, answer.id)}
+            items={contextItems}
+          />
         </div>
       </div>
 
+      {confirmDelete && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-3.5 py-2.5 text-xs">
+          <span className="text-rose-700 dark:text-rose-200 font-medium">
+            Remove this answer permanently?
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(false)}
+              className="min-h-[34px] rounded-lg px-2.5 py-1 text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-indigo-950/60 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={handleConfirmDelete}
+              className="min-h-[34px] rounded-lg bg-rose-600 px-3 py-1 font-semibold text-white disabled:opacity-50 cursor-pointer"
+            >
+              {deleting ? 'Deleting...' : 'Confirm delete'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {editError && !editing && (
+        <p className="mt-2 text-xs text-rose-500" role="alert">
+          {editError}
+        </p>
+      )}
+
       {editing ? (
         <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            {ANSWER_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setEditType(type)}
+                className={`min-h-[36px] rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                  editType === type
+                    ? 'border-violet-500 bg-violet-500/15 text-violet-800 dark:text-violet-200'
+                    : 'border-slate-200 dark:border-indigo-950 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
           <textarea
             value={editBody}
             onChange={(e) => setEditBody(e.target.value)}
             rows={4}
             className="w-full rounded-xl border border-slate-300 dark:border-indigo-900 bg-slate-50 dark:bg-[#070B19] p-3 text-sm text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
           />
+          {editError && (
+            <p className="text-xs text-rose-500" role="alert">
+              {editError}
+            </p>
+          )}
           <div className="flex items-center justify-end gap-2">
             <button
               type="button"
-              onClick={() => setEditing(false)}
+              onClick={() => {
+                setEditing(false);
+                setEditError(null);
+              }}
               className="min-h-[40px] rounded-xl px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-indigo-950/60 cursor-pointer"
             >
               Cancel
@@ -175,7 +327,7 @@ export function AnswerCard({
           </div>
         </div>
       ) : (
-        <div className="mt-3.5 font-wisdom text-[15.5px] sm:text-base leading-[1.75] text-slate-800 dark:text-slate-200 whitespace-pre-line">
+        <div className="mt-3.5 font-wisdom text-[15.5px] sm:text-base leading-[1.75] text-slate-800 dark:text-slate-200 whitespace-pre-line break-words">
           {answer.body}
         </div>
       )}

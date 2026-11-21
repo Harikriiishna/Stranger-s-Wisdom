@@ -41,6 +41,7 @@ export function ExplorePage() {
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchInput);
   const [page, setPage] = useState(1);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -78,18 +79,41 @@ export function ExplorePage() {
         navigate('/signin');
         return;
       }
+      setActionError(null);
       if (q.isSaved) await questionsApi.unsave(q.id);
       else await questionsApi.save(q.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['questions'] });
       queryClient.invalidateQueries({ queryKey: ['saved'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to update saved question.');
     },
   });
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0">
+        {actionError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-rose-500/35 bg-rose-500/10 px-4 py-3 text-xs text-rose-700 dark:text-rose-200"
+          >
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              aria-label="Dismiss error"
+              className="min-h-[32px] min-w-[32px] flex items-center justify-center cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white">
@@ -137,8 +161,18 @@ export function ExplorePage() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search questions, topics, or keywords..."
-              className="w-full min-h-[44px] rounded-xl border border-slate-200 dark:border-indigo-950 bg-white dark:bg-[#0D1326] pl-10 pr-4 text-sm focus:border-cyan-500 focus:outline-none"
+              className="w-full min-h-[44px] rounded-xl border border-slate-200 dark:border-indigo-950 bg-white dark:bg-[#0D1326] pl-10 pr-10 text-sm focus:border-cyan-500 focus:outline-none"
             />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => setSearchInput('')}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-slate-200 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           <div className="md:col-span-3">
@@ -249,15 +283,28 @@ export function ExplorePage() {
 }
 
 const POPULAR_TOPICS = ['Life', 'Love', 'Career', 'Growth', 'Decisions', 'Friendship'];
+const RECENT_SEARCHES_KEY = 'sw_recent_searches';
+
+function readStoredSearches(): string[] {
+  try {
+    const raw = window.localStorage.getItem(RECENT_SEARCHES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string').slice(0, 6)
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 export function SearchPage() {
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
-  const [recentSearches, setRecentSearches] = useState<string[]>([
-    'self care',
-    'moving on',
-    'career advice',
-  ]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(readStoredSearches);
+  const [actionError, setActionError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -265,9 +312,15 @@ export function SearchPage() {
       const trimmed = query.trim();
       setDebounced(trimmed);
       if (trimmed.length >= 3) {
-        setRecentSearches((prev) =>
-          [trimmed, ...prev.filter((p) => p !== trimmed)].slice(0, 6)
-        );
+        setRecentSearches((prev) => {
+          const updated = [trimmed, ...prev.filter((p) => p !== trimmed)].slice(0, 6);
+          try {
+            window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+          } catch {
+            // ignore storage failure
+          }
+          return updated;
+        });
       }
     }, 350);
     return () => window.clearTimeout(t);
@@ -281,6 +334,28 @@ export function SearchPage() {
         limit: 15,
       }),
     enabled: debounced.length > 0,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (q: QuestionCardItem) => {
+      if (!profile) {
+        navigate('/signin');
+        return;
+      }
+      setActionError(null);
+      if (q.isSaved) await questionsApi.unsave(q.id);
+      else await questionsApi.save(q.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['search', debounced] });
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['saved'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to update saved question.');
+    },
   });
 
   return (
@@ -317,6 +392,12 @@ export function SearchPage() {
           )}
         </div>
 
+        {actionError && (
+          <p className="text-sm text-rose-500" role="alert">
+            {actionError}
+          </p>
+        )}
+
         {!debounced ? (
           <div className="space-y-8">
             <div className="space-y-3">
@@ -339,9 +420,25 @@ export function SearchPage() {
 
             {recentSearches.length > 0 && (
               <div className="space-y-3">
-                <h2 className="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">
-                  Recent Searches
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">
+                    Recent Searches
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecentSearches([]);
+                      try {
+                        window.localStorage.removeItem(RECENT_SEARCHES_KEY);
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
+                  >
+                    Clear history
+                  </button>
+                </div>
                 <div className="divide-y divide-slate-200/70 dark:divide-indigo-950/70 rounded-2xl border border-slate-200/80 dark:border-indigo-950/80 bg-white dark:bg-[#0D1326]">
                   {recentSearches.map((item) => (
                     <button
@@ -380,7 +477,11 @@ export function SearchPage() {
               {data.total} {data.total === 1 ? 'result' : 'results'} for “{debounced}”
             </p>
             {data.questions.map((q) => (
-              <QuestionCard key={q.id} question={q} />
+              <QuestionCard
+                key={q.id}
+                question={q}
+                onToggleSave={(item) => saveMutation.mutate(item)}
+              />
             ))}
           </div>
         )}

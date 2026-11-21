@@ -13,7 +13,7 @@ const RealtimeContext = createContext<RealtimeContextValue>({
 
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
+  const { profile, refreshSession } = useAuth();
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
@@ -37,6 +37,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         queryClient.invalidateQueries({ queryKey: ['questions'] });
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
         queryClient.invalidateQueries({ queryKey: ['one-voice'] });
+        queryClient.invalidateQueries({ queryKey: ['saved'] });
+        queryClient.invalidateQueries({ queryKey: ['drafts'] });
+        queryClient.invalidateQueries({ queryKey: ['my-questions'] });
+        queryClient.invalidateQueries({ queryKey: ['my-answers'] });
+        queryClient.invalidateQueries({ queryKey: ['my-received'] });
       }
     };
 
@@ -44,7 +49,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       try {
         const msg = JSON.parse(event.data) as {
           type: string;
-          payload?: { questionId?: string };
+          payload?: { questionId?: string; scope?: string };
         };
 
         switch (msg.type) {
@@ -53,6 +58,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           case 'question:deleted':
             queryClient.invalidateQueries({ queryKey: ['home'] });
             queryClient.invalidateQueries({ queryKey: ['questions'] });
+            queryClient.invalidateQueries({ queryKey: ['my-questions'] });
+            queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
             if (msg.payload?.questionId) {
               queryClient.invalidateQueries({
                 queryKey: ['question', msg.payload.questionId],
@@ -65,6 +72,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           case 'reaction:updated':
             queryClient.invalidateQueries({ queryKey: ['home'] });
             queryClient.invalidateQueries({ queryKey: ['questions'] });
+            queryClient.invalidateQueries({ queryKey: ['my-answers'] });
+            queryClient.invalidateQueries({ queryKey: ['my-received'] });
+            queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
             if (msg.payload?.questionId) {
               queryClient.invalidateQueries({
                 queryKey: ['question', msg.payload.questionId],
@@ -76,6 +86,16 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             break;
           case 'one_voice:updated':
             queryClient.invalidateQueries({ queryKey: ['one-voice'] });
+            break;
+          case 'user:synced':
+            if (msg.payload?.scope === 'saved') {
+              queryClient.invalidateQueries({ queryKey: ['saved'] });
+              queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+            } else if (msg.payload?.scope === 'drafts') {
+              queryClient.invalidateQueries({ queryKey: ['drafts'] });
+            } else if (msg.payload?.scope === 'profile') {
+              void refreshSession();
+            }
             break;
         }
       } catch {
@@ -115,8 +135,12 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = getInMemoryToken();
-    if (profile && token && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'auth', token }));
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      if (profile && token) {
+        wsRef.current.send(JSON.stringify({ type: 'auth', token }));
+      } else if (!profile) {
+        wsRef.current.send(JSON.stringify({ type: 'logout' }));
+      }
     }
   }, [profile]);
 

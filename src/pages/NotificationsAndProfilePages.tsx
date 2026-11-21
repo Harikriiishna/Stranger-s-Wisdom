@@ -3,17 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Bell,
+  Check,
   CheckCheck,
   ChevronRight,
   Download,
   HelpCircle,
   Lock,
   LogOut,
-  Monitor,
-  Moon,
+  Palette,
   Shield,
   ShieldAlert,
-  Sun,
   Trash2,
   User,
 } from 'lucide-react';
@@ -33,11 +32,14 @@ import {
   profileApi,
 } from '../lib/api';
 import { formatTimeAgo, REPORT_REASONS } from '../lib/format';
+import { THEME_OPTIONS } from '../lib/themes';
 
 export function NotificationsPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['notifications'],
@@ -47,17 +49,36 @@ export function NotificationsPage() {
 
   const markRead = useMutation({
     mutationFn: notificationsApi.markRead,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to mark notification read.');
+    },
   });
 
   const readAll = useMutation({
     mutationFn: notificationsApi.readAll,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to mark notifications read.');
+    },
   });
 
   const clearAll = useMutation({
     mutationFn: notificationsApi.clear,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => {
+      setActionError(null);
+      setConfirmClear(false);
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to clear notifications.');
+    },
   });
 
   if (!profile) {
@@ -91,23 +112,50 @@ export function NotificationsPage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                disabled={readAll.isPending}
                 onClick={() => readAll.mutate()}
-                className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-indigo-900 px-3.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
+                className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-indigo-900 px-3.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 disabled:opacity-50 cursor-pointer"
               >
                 <CheckCheck className="h-3.5 w-3.5" />
                 Mark all read
               </button>
-              <button
-                type="button"
-                onClick={() => clearAll.mutate()}
-                className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-indigo-900 px-3.5 py-1.5 text-xs font-medium text-rose-500 cursor-pointer"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Clear
-              </button>
+              {confirmClear ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClear(false)}
+                    className="min-h-[40px] rounded-xl px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={clearAll.isPending}
+                    onClick={() => clearAll.mutate()}
+                    className="min-h-[40px] rounded-xl bg-rose-600 px-3.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50 cursor-pointer"
+                  >
+                    {clearAll.isPending ? 'Clearing...' : 'Confirm Clear'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClear(true)}
+                  className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-indigo-900 px-3.5 py-1.5 text-xs font-medium text-rose-500 cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear
+                </button>
+              )}
             </div>
           )}
         </div>
+
+        {actionError && (
+          <p className="text-xs text-rose-500" role="alert">
+            {actionError}
+          </p>
+        )}
 
         {isLoading ? (
           <LoadingSkeleton count={3} />
@@ -121,15 +169,16 @@ export function NotificationsPage() {
         ) : (
           <div className="space-y-3">
             {data?.notifications.map((n) => (
-              <div
+              <button
                 key={n.id}
+                type="button"
                 onClick={() => {
                   if (!n.readAt) markRead.mutate(n.id);
                   if (n.relatedQuestionId) {
                     navigate(`/questions/${n.relatedQuestionId}`);
                   }
                 }}
-                className={`rounded-2xl border p-5 cursor-pointer transition-colors ${
+                className={`w-full text-left rounded-2xl border p-5 cursor-pointer transition-colors ${
                   n.readAt
                     ? 'border-slate-200/80 dark:border-indigo-950/70 bg-white dark:bg-[#0D1326]'
                     : 'border-cyan-500/40 bg-cyan-500/5 dark:bg-[#101936]'
@@ -151,7 +200,7 @@ export function NotificationsPage() {
                     {formatTimeAgo(n.createdAt)}
                   </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -166,6 +215,8 @@ export function ProfilePage() {
   const queryClient = useQueryClient();
   const [editingAlias, setEditingAlias] = useState(false);
   const [aliasInput, setAliasInput] = useState(profile?.privateAlias || '');
+  const [aliasError, setAliasError] = useState<string | null>(null);
+  const [aliasSaving, setAliasSaving] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['profile-stats'],
@@ -216,27 +267,49 @@ export function ProfilePage() {
                   Private Account · Never shown publicly
                 </p>
                 {editingAlias ? (
-                  <div className="mt-1 flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={aliasInput}
-                      onChange={(e) => setAliasInput(e.target.value)}
-                      className="rounded-lg border border-slate-300 dark:border-indigo-800 bg-slate-50 dark:bg-[#070B19] px-2.5 py-1 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (aliasInput.trim().length < 2) return;
-                        const res = await profileApi.update({
-                          privateAlias: aliasInput.trim(),
-                        });
-                        updateLocalProfile(res.profile);
-                        setEditingAlias(false);
-                      }}
-                      className="rounded-lg bg-cyan-500 px-3 py-1 text-xs font-semibold text-slate-950 cursor-pointer"
-                    >
-                      Save
-                    </button>
+                  <div className="mt-1 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        maxLength={40}
+                        value={aliasInput}
+                        onChange={(e) => setAliasInput(e.target.value)}
+                        className="rounded-lg border border-slate-300 dark:border-indigo-800 bg-slate-50 dark:bg-[#070B19] px-2.5 py-1 text-sm"
+                      />
+                      <button
+                        type="button"
+                        disabled={aliasSaving}
+                        onClick={async () => {
+                          setAliasError(null);
+                          if (aliasInput.trim().length < 2) {
+                            setAliasError('Alias must be at least 2 characters.');
+                            return;
+                          }
+                          setAliasSaving(true);
+                          try {
+                            const res = await profileApi.update({
+                              privateAlias: aliasInput.trim(),
+                            });
+                            updateLocalProfile(res.profile);
+                            setEditingAlias(false);
+                          } catch (err) {
+                            setAliasError(
+                              err instanceof Error ? err.message : 'Unable to save alias.'
+                            );
+                          } finally {
+                            setAliasSaving(false);
+                          }
+                        }}
+                        className="rounded-lg bg-cyan-500 px-3 py-1 text-xs font-semibold text-slate-950 disabled:opacity-50 cursor-pointer"
+                      >
+                        {aliasSaving ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                    {aliasError && (
+                      <p className="text-xs text-rose-500" role="alert">
+                        {aliasError}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
@@ -257,6 +330,7 @@ export function ProfilePage() {
               type="button"
               onClick={() => {
                 setAliasInput(profile.privateAlias);
+                setAliasError(null);
                 setEditingAlias((v) => !v);
               }}
               className="min-h-[42px] rounded-xl border border-slate-300 dark:border-indigo-800 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
@@ -294,22 +368,32 @@ export function ProfilePage() {
         </section>
 
         {modStatus.data?.canClaimInitialModerator && (
-          <div className="rounded-2xl border border-violet-500/35 bg-violet-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                Initialize Community Moderation
-              </h2>
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                No moderator account has been claimed yet. Claim moderator access for this workspace.
-              </p>
+          <div className="rounded-2xl border border-violet-500/35 bg-violet-500/10 p-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Initialize Community Moderation
+                </h2>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  No moderator account has been claimed yet. Claim moderator access for this workspace.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={claimModMutation.isPending}
+                onClick={() => claimModMutation.mutate()}
+                className="min-h-[42px] rounded-xl bg-violet-600 dark:bg-violet-500 px-4 py-2 text-xs font-semibold text-white whitespace-nowrap disabled:opacity-50 cursor-pointer"
+              >
+                {claimModMutation.isPending ? 'Claiming...' : 'Claim Moderator Role'}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => claimModMutation.mutate()}
-              className="min-h-[42px] rounded-xl bg-violet-600 dark:bg-violet-500 px-4 py-2 text-xs font-semibold text-white whitespace-nowrap cursor-pointer"
-            >
-              Claim Moderator Role
-            </button>
+            {claimModMutation.isError && (
+              <p className="text-xs text-rose-500" role="alert">
+                {claimModMutation.error instanceof Error
+                  ? claimModMutation.error.message
+                  : 'Unable to claim moderator role.'}
+              </p>
+            )}
           </div>
         )}
 
@@ -354,29 +438,45 @@ export function SettingsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const [pwError, setPwError] = useState<string | null>(null);
+  const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const toggleNotif = async (key: 'answers' | 'oneVoice' | 'savedQuestions' | 'drafts') => {
     if (!profile) return;
+    setSettingsError(null);
+    setSettingsMsg(null);
     const next = {
       ...profile.notificationSettings,
       [key]: !profile.notificationSettings[key],
     };
-    const res = await profileApi.update({ notificationSettings: next });
-    updateLocalProfile(res.profile);
+    try {
+      const res = await profileApi.update({ notificationSettings: next });
+      updateLocalProfile(res.profile);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Unable to save preferences.');
+    }
   };
 
   const handleExport = async () => {
-    const data = await profileApi.exportData();
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `strangers-wisdom-export-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setSettingsError(null);
+    setSettingsMsg(null);
+    try {
+      const data = await profileApi.exportData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `strangers-wisdom-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSettingsMsg('Your private data export has been downloaded.');
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Unable to export data.');
+    }
   };
 
   return (
@@ -391,31 +491,83 @@ export function SettingsPage() {
           </p>
         </div>
 
-        {/* Appearance */}
+        {settingsError && (
+          <p className="text-sm text-rose-500" role="alert">
+            {settingsError}
+          </p>
+        )}
+        {settingsMsg && (
+          <p className="text-sm text-teal-600 dark:text-teal-400">
+            {settingsMsg}
+          </p>
+        )}
+
+        {/* Appearance & Themes */}
         <section className="rounded-3xl border border-slate-200 dark:border-indigo-950 bg-white dark:bg-[#0D1326] p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-            Appearance
-          </h2>
-          <div className="grid grid-cols-3 gap-2.5">
-            {[
-              { id: 'dark' as const, label: 'Dark', icon: Moon },
-              { id: 'light' as const, label: 'Light', icon: Sun },
-              { id: 'system' as const, label: 'System', icon: Monitor },
-            ].map((item) => {
-              const Icon = item.icon;
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Palette className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                Appearance &amp; Themes
+              </h2>
+            </div>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {THEME_OPTIONS.find((t) => t.id === theme)?.label ?? 'Midnight Sanctuary'}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {THEME_OPTIONS.map((item) => {
+              const selected = theme === item.id;
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setTheme(item.id)}
-                  className={`min-h-[48px] flex items-center justify-center gap-2 rounded-xl border text-xs font-semibold cursor-pointer ${
-                    theme === item.id
-                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
-                      : 'border-slate-200 dark:border-indigo-950 text-slate-600 dark:text-slate-300'
+                  aria-pressed={selected}
+                  onClick={async () => {
+                    setSettingsError(null);
+                    try {
+                      await setTheme(item.id);
+                    } catch (err) {
+                      setSettingsError(
+                        err instanceof Error ? err.message : 'Unable to save theme preference.'
+                      );
+                    }
+                  }}
+                  className={`min-h-[64px] flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors cursor-pointer ${
+                    selected
+                      ? 'border-cyan-500 bg-cyan-500/10 text-slate-900 dark:text-white'
+                      : 'border-slate-200 dark:border-indigo-950 text-slate-700 dark:text-slate-300 hover:border-cyan-500/40'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      aria-hidden="true"
+                      className="flex h-9 w-9 shrink-0 overflow-hidden rounded-xl border border-slate-300/60 dark:border-white/15"
+                    >
+                      <span
+                        className="w-1/2 h-full"
+                        style={{ backgroundColor: item.swatches[0] }}
+                      />
+                      <span
+                        className="w-1/2 h-full flex items-end justify-end p-1"
+                        style={{ backgroundColor: item.swatches[1] }}
+                      >
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: item.swatches[2] }}
+                        />
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold truncate">{item.label}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                  {selected && (
+                    <Check className="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                  )}
                 </button>
               );
             })}
@@ -549,14 +701,25 @@ export function SettingsPage() {
                     </button>
                     <button
                       type="button"
+                      disabled={deletingAccount}
                       onClick={async () => {
-                        await authApi.deleteAccount();
-                        await logout();
-                        navigate('/onboarding');
+                        setSettingsError(null);
+                        setDeletingAccount(true);
+                        try {
+                          await authApi.deleteAccount();
+                          await logout();
+                          navigate('/onboarding');
+                        } catch (err) {
+                          setSettingsError(
+                            err instanceof Error ? err.message : 'Unable to delete account.'
+                          );
+                        } finally {
+                          setDeletingAccount(false);
+                        }
                       }}
-                      className="min-h-[40px] rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white cursor-pointer"
+                      className="min-h-[40px] rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50 cursor-pointer"
                     >
-                      Confirm Account Deletion
+                      {deletingAccount ? 'Deleting...' : 'Confirm Account Deletion'}
                     </button>
                   </div>
                 </div>
@@ -583,15 +746,21 @@ export function SettingsPage() {
 export function PrivacySafetyPage() {
   const { profile, updateLocalProfile } = useAuth();
   const queryClient = useQueryClient();
+  const [privacyError, setPrivacyError] = useState<string | null>(null);
 
   const togglePrivacy = async (key: 'keepActivityPrivate' | 'allowAnonymousReplies') => {
     if (!profile) return;
+    setPrivacyError(null);
     const next = {
       ...profile.privacySettings,
       [key]: !profile.privacySettings[key],
     };
-    const res = await profileApi.update({ privacySettings: next });
-    updateLocalProfile(res.profile);
+    try {
+      const res = await profileApi.update({ privacySettings: next });
+      updateLocalProfile(res.profile);
+    } catch (err) {
+      setPrivacyError(err instanceof Error ? err.message : 'Unable to update privacy setting.');
+    }
   };
 
   return (
@@ -605,6 +774,12 @@ export function PrivacySafetyPage() {
             Your identity is never exposed publicly. You stay in control of what you see.
           </p>
         </div>
+
+        {privacyError && (
+          <p className="text-sm text-rose-500" role="alert">
+            {privacyError}
+          </p>
+        )}
 
         {profile && (
           <section className="rounded-3xl border border-slate-200 dark:border-indigo-950 bg-white dark:bg-[#0D1326] p-6 space-y-4">
@@ -650,15 +825,22 @@ export function PrivacySafetyPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    const res = await profileApi.update({
-                      privacySettings: {
-                        ...profile.privacySettings,
-                        hiddenQuestionIds: [],
-                      },
-                    });
-                    updateLocalProfile(res.profile);
-                    queryClient.invalidateQueries({ queryKey: ['home'] });
-                    queryClient.invalidateQueries({ queryKey: ['questions'] });
+                    setPrivacyError(null);
+                    try {
+                      const res = await profileApi.update({
+                        privacySettings: {
+                          ...profile.privacySettings,
+                          hiddenQuestionIds: [],
+                        },
+                      });
+                      updateLocalProfile(res.profile);
+                      queryClient.invalidateQueries({ queryKey: ['home'] });
+                      queryClient.invalidateQueries({ queryKey: ['questions'] });
+                    } catch (err) {
+                      setPrivacyError(
+                        err instanceof Error ? err.message : 'Unable to restore hidden questions.'
+                      );
+                    }
                   }}
                   className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
                 >
@@ -694,6 +876,7 @@ export function ReportContentPage() {
   const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
   const [description, setDescription] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -717,6 +900,7 @@ export function ReportContentPage() {
             onSubmit={async (e) => {
               e.preventDefault();
               setError(null);
+              setSubmitting(true);
               try {
                 await moderationApi.submitReport({
                   contentType,
@@ -727,6 +911,8 @@ export function ReportContentPage() {
                 setSubmitted(true);
               } catch (err) {
                 setError(err instanceof Error ? err.message : 'Unable to submit report.');
+              } finally {
+                setSubmitting(false);
               }
             }}
             className="rounded-3xl border border-slate-200 dark:border-indigo-950 bg-white dark:bg-[#0D1326] p-6 space-y-4"
@@ -775,9 +961,10 @@ export function ReportContentPage() {
             {error && <p className="text-sm text-rose-500">{error}</p>}
             <button
               type="submit"
-              className="w-full min-h-[44px] rounded-xl bg-cyan-600 dark:bg-cyan-500 text-sm font-semibold text-white dark:text-slate-950 cursor-pointer"
+              disabled={submitting}
+              className="w-full min-h-[44px] rounded-xl bg-cyan-600 dark:bg-cyan-500 text-sm font-semibold text-white dark:text-slate-950 disabled:opacity-50 cursor-pointer"
             >
-              Submit Report
+              {submitting ? 'Submitting...' : 'Submit Report'}
             </button>
           </form>
         )}

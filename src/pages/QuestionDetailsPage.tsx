@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
@@ -14,8 +14,10 @@ import {
   Share2,
   ShieldCheck,
   Trash2,
+  X,
 } from 'lucide-react';
 import { AnswerCard } from '../components/AnswerCard';
+import { CardContextMenu } from '../components/CardContextMenu';
 import { Layout } from '../components/Layout';
 import { ReportModal } from '../components/ReportModal';
 import {
@@ -27,11 +29,13 @@ import {
 } from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { answersApi, questionsApi, savedApi } from '../lib/api';
+import { copyTextToClipboard, getQuestionShareUrl } from '../lib/clipboard';
 import { ANSWER_TYPES, formatStatusLabel, formatTimeAgo } from '../lib/format';
 import type { AnswerItem, CrisisResources } from '../types';
 
 export function QuestionDetailsPage({ openEditorByDefault = false }: { openEditorByDefault?: boolean }) {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { profile, continueAnonymously } = useAuth();
@@ -40,20 +44,45 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
   const [answerBody, setAnswerBody] = useState('');
   const [answerType, setAnswerType] = useState<string>('My Advice');
   const [answerError, setAnswerError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
   const [answerSuccess, setAnswerSuccess] = useState(false);
   const [crisisResources, setCrisisResources] = useState<CrisisResources | null>(null);
   const [copiedShare, setCopiedShare] = useState(false);
+  const [confirmDeleteQuestion, setConfirmDeleteQuestion] = useState(false);
+  const [deletingQuestion, setDeletingQuestion] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
     type: 'question' | 'answer';
     id: string;
   } | null>(null);
+
+  useEffect(() => {
+    setShowEditor(openEditorByDefault);
+    setAnswerBody('');
+    setAnswerError(null);
+    setActionError(null);
+    setAnswerSuccess(false);
+    setCrisisResources(null);
+    setConfirmDeleteQuestion(false);
+  }, [id, openEditorByDefault]);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['question', id],
     queryFn: () => questionsApi.getById(id!),
     enabled: Boolean(id),
   });
+
+  const highlightedAnswerId = location.hash.startsWith('#answer-')
+    ? location.hash.slice('#answer-'.length)
+    : null;
+
+  useEffect(() => {
+    if (!highlightedAnswerId || !data?.answers?.length) return;
+    const el = document.getElementById(`answer-${highlightedAnswerId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightedAnswerId, data?.answers?.length]);
 
   const { data: savedData } = useQuery({
     queryKey: ['saved'],
@@ -67,6 +96,7 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
         navigate('/signin');
         return;
       }
+      setActionError(null);
       if (data?.question.isSaved) {
         await questionsApi.unsave(id!);
       } else {
@@ -76,6 +106,12 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['question', id] });
       queryClient.invalidateQueries({ queryKey: ['saved'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to save question.');
     },
   });
 
@@ -106,6 +142,7 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
       queryClient.invalidateQueries({ queryKey: ['home'] });
       queryClient.invalidateQueries({ queryKey: ['my-answers'] });
       queryClient.invalidateQueries({ queryKey: ['one-voice'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
     } catch (err) {
       setAnswerError(err instanceof Error ? err.message : 'Unable to post answer.');
     } finally {
@@ -118,8 +155,13 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
       navigate('/signin');
       return;
     }
-    await answersApi.react(answerId, reactionType);
-    queryClient.invalidateQueries({ queryKey: ['question', id] });
+    setActionError(null);
+    try {
+      await answersApi.react(answerId, reactionType);
+      queryClient.invalidateQueries({ queryKey: ['question', id] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update reaction.');
+    }
   };
 
   const handleToggleSaveAnswer = async (ans: AnswerItem) => {
@@ -127,10 +169,16 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
       navigate('/signin');
       return;
     }
-    if (ans.isSaved) await answersApi.unsave(ans.id);
-    else await answersApi.save(ans.id);
-    queryClient.invalidateQueries({ queryKey: ['question', id] });
-    queryClient.invalidateQueries({ queryKey: ['saved'] });
+    setActionError(null);
+    try {
+      if (ans.isSaved) await answersApi.unsave(ans.id);
+      else await answersApi.save(ans.id);
+      queryClient.invalidateQueries({ queryKey: ['question', id] });
+      queryClient.invalidateQueries({ queryKey: ['saved'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update saved state.');
+    }
   };
 
   const handleEditAnswer = async (ans: AnswerItem, newBody: string, newType: string) => {
@@ -141,19 +189,36 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
   const handleDeleteAnswer = async (answerId: string) => {
     await answersApi.remove(answerId);
     queryClient.invalidateQueries({ queryKey: ['question', id] });
+    queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
   };
 
   const handleStatusChange = async (status: 'open' | 'archived') => {
-    await questionsApi.update(id!, { status });
-    queryClient.invalidateQueries({ queryKey: ['question', id] });
-    queryClient.invalidateQueries({ queryKey: ['my-questions'] });
+    setActionError(null);
+    try {
+      await questionsApi.update(id!, { status });
+      queryClient.invalidateQueries({ queryKey: ['question', id] });
+      queryClient.invalidateQueries({ queryKey: ['my-questions'] });
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update question status.');
+    }
   };
 
   const handleDeleteQuestion = async () => {
-    await questionsApi.remove(id!);
-    queryClient.invalidateQueries({ queryKey: ['home'] });
-    queryClient.invalidateQueries({ queryKey: ['questions'] });
-    navigate('/explore');
+    setActionError(null);
+    setDeletingQuestion(true);
+    try {
+      await questionsApi.remove(id!);
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['my-questions'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+      navigate('/explore');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to delete question.');
+    } finally {
+      setDeletingQuestion(false);
+    }
   };
 
   const handleHideQuestion = async () => {
@@ -161,24 +226,41 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
       navigate('/signin');
       return;
     }
-    await questionsApi.hide(id!);
-    queryClient.invalidateQueries({ queryKey: ['home'] });
-    queryClient.invalidateQueries({ queryKey: ['questions'] });
-    navigate('/explore');
+    setActionError(null);
+    try {
+      await questionsApi.hide(id!);
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      navigate('/explore');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to hide question.');
+    }
   };
 
   const handleShare = async () => {
-    const shareUrl = window.location.href;
-    if (navigator.share) {
-      await navigator.share({
-        title: data?.question.title || "Stranger's Wisdom",
-        url: shareUrl,
-      }).catch(() => undefined);
-    } else {
-      await navigator.clipboard.writeText(shareUrl);
+    const shareUrl = id ? getQuestionShareUrl(id) : window.location.href;
+    setActionError(null);
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: data?.question.title || "Stranger's Wisdom",
+          url: shareUrl,
+        });
+        setCopiedShare(true);
+        setTimeout(() => setCopiedShare(false), 2000);
+        return;
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
     }
-    setCopiedShare(true);
-    setTimeout(() => setCopiedShare(false), 2000);
+
+    const copied = await copyTextToClipboard(shareUrl);
+    if (copied) {
+      setCopiedShare(true);
+      setTimeout(() => setCopiedShare(false), 2000);
+    } else {
+      setActionError('Could not copy link automatically. Please copy the URL from your browser address bar.');
+    }
   };
 
   return (
@@ -304,7 +386,7 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                       </button>
                       <button
                         type="button"
-                        onClick={handleDeleteQuestion}
+                        onClick={() => setConfirmDeleteQuestion((v) => !v)}
                         aria-label="Delete question"
                         className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-500 cursor-pointer"
                       >
@@ -333,8 +415,81 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                       </button>
                     </>
                   )}
+                  <CardContextMenu
+                    triggerLabel="Question options"
+                    shareUrl={getQuestionShareUrl(data.question.id)}
+                    items={[
+                      {
+                        label: data.question.isSaved ? 'Remove from saved' : 'Save question',
+                        icon: (
+                          <Bookmark
+                            className="h-4 w-4 text-amber-500"
+                            fill={data.question.isSaved ? 'currentColor' : 'none'}
+                          />
+                        ),
+                        onClick: () => saveQuestionMutation.mutate(),
+                      },
+                      ...(!data.question.isOwner
+                        ? [
+                            {
+                              label: 'Hide from feed',
+                              icon: <EyeOff className="h-4 w-4 text-slate-400" />,
+                              onClick: handleHideQuestion,
+                            },
+                            {
+                              label: 'Report question',
+                              icon: <Flag className="h-4 w-4 text-amber-500" />,
+                              onClick: () =>
+                                setReportTarget({ type: 'question', id: data.question.id }),
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
                 </div>
               </div>
+
+              {confirmDeleteQuestion && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/35 bg-rose-500/10 p-4 text-xs">
+                  <span className="text-rose-700 dark:text-rose-200 font-medium">
+                    Permanently delete this question and all its answers?
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteQuestion(false)}
+                      className="min-h-[36px] rounded-xl px-3 py-1.5 text-slate-700 dark:text-slate-300 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingQuestion}
+                      onClick={handleDeleteQuestion}
+                      className="min-h-[36px] rounded-xl bg-rose-600 px-3.5 py-1.5 font-semibold text-white disabled:opacity-50 cursor-pointer"
+                    >
+                      {deletingQuestion ? 'Deleting...' : 'Confirm delete'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {actionError && (
+                <div
+                  role="alert"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-rose-500/35 bg-rose-500/10 px-4 py-3 text-xs text-rose-700 dark:text-rose-200"
+                >
+                  <span>{actionError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setActionError(null)}
+                    aria-label="Dismiss error"
+                    className="min-h-[32px] min-w-[32px] flex items-center justify-center cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </section>
 
             {answerSuccess && (
@@ -448,6 +603,7 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                     <AnswerCard
                       key={ans.id}
                       answer={ans}
+                      highlighted={highlightedAnswerId === ans.id}
                       onReact={handleReact}
                       onToggleSave={handleToggleSaveAnswer}
                       onReport={(ansId) =>

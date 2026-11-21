@@ -3,7 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, FileText, Radio, Save, Send, ShieldCheck } from 'lucide-react';
 import { Layout } from '../components/Layout';
-import { CrisisSupportBanner, SuccessConfirmation } from '../components/StateViews';
+import {
+  CrisisSupportBanner,
+  ErrorState,
+  LoadingSkeleton,
+  SuccessConfirmation,
+} from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { myWisdomApi, questionsApi } from '../lib/api';
 import { QUESTION_CATEGORIES, QUESTION_TYPES } from '../lib/format';
@@ -36,7 +41,12 @@ export function AskQuestionPage() {
     null
   );
 
-  const { data: editData } = useQuery({
+  const {
+    data: editData,
+    isLoading: editLoading,
+    isError: editError,
+    refetch: refetchEdit,
+  } = useQuery({
     queryKey: ['question', editId],
     queryFn: () => questionsApi.getById(editId!),
     enabled: Boolean(editId),
@@ -47,6 +57,23 @@ export function AskQuestionPage() {
     queryFn: myWisdomApi.drafts,
     enabled: Boolean(profile),
   });
+
+  useEffect(() => {
+    if (!editId && !draftIdParam) {
+      setTitle('');
+      setBody('');
+      setCategory('Life');
+      setQuestionType('I Need Perspective');
+      setTagsText('');
+      setIsOneVoice(false);
+      setPreviewMode(false);
+      setActiveDraftId(undefined);
+      setPublishedId(null);
+      setError(null);
+      setDraftSavedMsg(null);
+      setCrisisResources(null);
+    }
+  }, [editId, draftIdParam]);
 
   useEffect(() => {
     if (editData?.question) {
@@ -156,12 +183,36 @@ export function AskQuestionPage() {
       queryClient.invalidateQueries({ queryKey: ['my-questions'] });
       queryClient.invalidateQueries({ queryKey: ['one-voice'] });
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to publish question.');
     } finally {
       setBusy(false);
     }
   };
+
+  if (editId && editLoading) {
+    return (
+      <Layout>
+        <div className="max-w-3xl mx-auto">
+          <LoadingSkeleton count={2} />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (editId && editError) {
+    return (
+      <Layout>
+        <div className="max-w-3xl mx-auto">
+          <ErrorState
+            message="We could not load this question for editing."
+            onRetry={() => refetchEdit()}
+          />
+        </div>
+      </Layout>
+    );
+  }
 
   if (publishedId) {
     return (

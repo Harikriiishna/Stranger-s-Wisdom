@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, EyeOff, RotateCcw, Shield, Trash2, UserX } from 'lucide-react';
 import { Layout } from '../components/Layout';
@@ -11,6 +12,8 @@ export function ModerationDashboardPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [actionNote, setActionNote] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['moderation-dashboard'],
@@ -28,11 +31,17 @@ export function ModerationDashboardPage() {
       reportId: string;
       action: string;
     }) => moderationApi.takeAction(reportId, action, actionNote),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       setActionNote('');
+      setActionError(null);
+      setActionSuccess(`Moderation action "${variables.action.replace('_', ' ')}" applied.`);
       queryClient.invalidateQueries({ queryKey: ['moderation-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['home'] });
       queryClient.invalidateQueries({ queryKey: ['questions'] });
+    },
+    onError: (err) => {
+      setActionSuccess(null);
+      setActionError(err instanceof Error ? err.message : 'Unable to apply moderation action.');
     },
   });
 
@@ -114,6 +123,17 @@ export function ModerationDashboardPage() {
               />
             </div>
 
+            {actionError && (
+              <p className="text-xs text-rose-500" role="alert">
+                {actionError}
+              </p>
+            )}
+            {actionSuccess && (
+              <p className="text-xs text-teal-600 dark:text-teal-400">
+                {actionSuccess}
+              </p>
+            )}
+
             {/* Reports Queue */}
             <section className="space-y-4">
               <h2 className="text-sm font-semibold tracking-wide text-slate-500 dark:text-slate-400">
@@ -158,56 +178,61 @@ export function ModerationDashboardPage() {
                       <div className="pt-2 flex flex-wrap gap-2">
                         <button
                           type="button"
+                          disabled={actionMutation.isPending}
                           onClick={() =>
                             actionMutation.mutate({ reportId: r.id, action: 'hide' })
                           }
-                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-indigo-800 px-3 py-1.5 text-xs font-medium cursor-pointer"
+                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-indigo-800 px-3 py-1.5 text-xs font-medium disabled:opacity-50 cursor-pointer"
                         >
                           <EyeOff className="h-3.5 w-3.5" />
                           Hide
                         </button>
                         <button
                           type="button"
+                          disabled={actionMutation.isPending}
                           onClick={() =>
                             actionMutation.mutate({ reportId: r.id, action: 'remove' })
                           }
-                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 text-rose-500 px-3 py-1.5 text-xs font-medium cursor-pointer"
+                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 text-rose-500 px-3 py-1.5 text-xs font-medium disabled:opacity-50 cursor-pointer"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           Remove
                         </button>
                         <button
                           type="button"
+                          disabled={actionMutation.isPending}
                           onClick={() =>
                             actionMutation.mutate({ reportId: r.id, action: 'restore' })
                           }
-                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-teal-500/40 text-teal-600 dark:text-teal-300 px-3 py-1.5 text-xs font-medium cursor-pointer"
+                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-teal-500/40 text-teal-600 dark:text-teal-300 px-3 py-1.5 text-xs font-medium disabled:opacity-50 cursor-pointer"
                         >
                           <RotateCcw className="h-3.5 w-3.5" />
                           Restore
                         </button>
                         <button
                           type="button"
+                          disabled={actionMutation.isPending}
                           onClick={() =>
                             actionMutation.mutate({
                               reportId: r.id,
                               action: 'suspend_account',
                             })
                           }
-                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 text-amber-600 dark:text-amber-300 px-3 py-1.5 text-xs font-medium cursor-pointer"
+                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 text-amber-600 dark:text-amber-300 px-3 py-1.5 text-xs font-medium disabled:opacity-50 cursor-pointer"
                         >
                           <UserX className="h-3.5 w-3.5" />
                           Suspend Author
                         </button>
                         <button
                           type="button"
+                          disabled={actionMutation.isPending}
                           onClick={() =>
                             actionMutation.mutate({
                               reportId: r.id,
                               action: 'dismiss_report',
                             })
                           }
-                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-indigo-800 px-3 py-1.5 text-xs font-medium cursor-pointer"
+                          className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-indigo-800 px-3 py-1.5 text-xs font-medium disabled:opacity-50 cursor-pointer"
                         >
                           <Check className="h-3.5 w-3.5" />
                           Dismiss
@@ -218,6 +243,38 @@ export function ModerationDashboardPage() {
                 </div>
               )}
             </section>
+
+            {/* Auto-Flagged Questions */}
+            {(data.flaggedQuestions ?? []).length > 0 && (
+              <section className="space-y-3">
+                <h2 className="text-sm font-semibold tracking-wide text-slate-500 dark:text-slate-400">
+                  Auto-Flagged Questions
+                </h2>
+                <div className="divide-y divide-slate-200 dark:divide-indigo-950 rounded-2xl border border-slate-200 dark:border-indigo-950 bg-white dark:bg-[#0D1326]">
+                  {data.flaggedQuestions.map((fq) => (
+                    <div
+                      key={fq.id}
+                      className="px-5 py-4 flex flex-wrap items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-xs text-cyan-700 dark:text-cyan-400">
+                          {fq.category} · Status: {fq.status} · {formatTimeAgo(fq.createdAt)}
+                        </p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                          {fq.title}
+                        </p>
+                      </div>
+                      <Link
+                        to={`/questions/${fq.id}`}
+                        className="min-h-[36px] inline-flex items-center rounded-xl border border-slate-300 dark:border-indigo-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/60"
+                      >
+                        Inspect
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Moderation History */}
             {data.history.length > 0 && (

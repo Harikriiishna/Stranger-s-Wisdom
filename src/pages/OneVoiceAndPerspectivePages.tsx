@@ -10,10 +10,12 @@ import {
   Radio,
   RefreshCw,
 } from 'lucide-react';
+import { CardContextMenu } from '../components/CardContextMenu';
 import { Layout } from '../components/Layout';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { answersApi, myWisdomApi } from '../lib/api';
+import { getAnswerShareUrl } from '../lib/clipboard';
 import { formatStatusLabel, formatTimeAgo, REACTION_TYPES } from '../lib/format';
 
 export function OneVoicePage() {
@@ -110,14 +112,22 @@ export function OneVoicePage() {
                             {req.answerBody}
                           </p>
                           {req.status !== 'closed' && (
-                            <div className="pt-2 flex justify-end">
+                            <div className="pt-2 flex flex-col items-end gap-2">
                               <button
                                 type="button"
+                                disabled={closeMutation.isPending}
                                 onClick={() => closeMutation.mutate(req.deliveryId)}
-                                className="min-h-[40px] rounded-xl border border-slate-300 dark:border-indigo-800 px-4 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-indigo-950/60 cursor-pointer"
+                                className="min-h-[40px] rounded-xl border border-slate-300 dark:border-indigo-800 px-4 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-indigo-950/60 disabled:opacity-50 cursor-pointer"
                               >
-                                Mark as Closed
+                                {closeMutation.isPending ? 'Closing...' : 'Mark as Closed'}
                               </button>
+                              {closeMutation.isError && (
+                                <p className="text-xs text-rose-500" role="alert">
+                                  {closeMutation.error instanceof Error
+                                    ? closeMutation.error.message
+                                    : 'Unable to close delivery.'}
+                                </p>
+                              )}
                             </div>
                           )}
                         </div>
@@ -183,9 +193,11 @@ export function PerspectivePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [seenIds, setSeenIds] = useState<string[]>([]);
+  const [cycleCount, setCycleCount] = useState(0);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['random-perspective', seenIds.length],
+    queryKey: ['random-perspective', cycleCount],
     queryFn: async () => {
       const res = await answersApi.randomPerspective(seenIds);
       return res;
@@ -195,8 +207,10 @@ export function PerspectivePage() {
   const perspective = data?.perspective;
 
   const handleNext = () => {
+    setActionError(null);
     if (perspective?.id) {
       setSeenIds((prev) => [...prev.slice(-15), perspective.id]);
+      setCycleCount((c) => c + 1);
     } else {
       refetch();
     }
@@ -208,10 +222,17 @@ export function PerspectivePage() {
       navigate('/signin');
       return;
     }
-    if (perspective.isSaved) await answersApi.unsave(perspective.id);
-    else await answersApi.save(perspective.id);
-    queryClient.invalidateQueries({ queryKey: ['random-perspective'] });
-    queryClient.invalidateQueries({ queryKey: ['saved'] });
+    setActionError(null);
+    try {
+      if (perspective.isSaved) await answersApi.unsave(perspective.id);
+      else await answersApi.save(perspective.id);
+      queryClient.invalidateQueries({ queryKey: ['random-perspective'] });
+      queryClient.invalidateQueries({ queryKey: ['saved'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to save perspective.');
+    }
   };
 
   const handleReact = async (reactionType: string) => {
@@ -220,8 +241,13 @@ export function PerspectivePage() {
       navigate('/signin');
       return;
     }
-    await answersApi.react(perspective.id, reactionType);
-    queryClient.invalidateQueries({ queryKey: ['random-perspective'] });
+    setActionError(null);
+    try {
+      await answersApi.react(perspective.id, reactionType);
+      queryClient.invalidateQueries({ queryKey: ['random-perspective'] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update reaction.');
+    }
   };
 
   return (
@@ -248,7 +274,13 @@ export function PerspectivePage() {
             onAction={() => navigate('/explore')}
           />
         ) : (
-          <div className="rounded-3xl border border-indigo-200 dark:border-indigo-900 bg-gradient-to-b from-white via-slate-50 to-indigo-50/40 dark:from-[#101836] dark:via-[#0D1326] dark:to-[#0A0F21] p-7 sm:p-10 space-y-6 shadow-xl">
+          <div className="relative rounded-3xl border border-indigo-200 dark:border-indigo-900 bg-gradient-to-b from-white via-slate-50 to-indigo-50/40 dark:from-[#101836] dark:via-[#0D1326] dark:to-[#0A0F21] p-7 sm:p-10 space-y-6 shadow-xl">
+            <div className="absolute top-4 right-4">
+              <CardContextMenu
+                triggerLabel="Perspective options"
+                shareUrl={getAnswerShareUrl(perspective.questionId, perspective.id)}
+              />
+            </div>
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
               <Lightbulb className="h-7 w-7" />
             </div>
@@ -257,7 +289,7 @@ export function PerspectivePage() {
               <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">
                 {perspective.answerType} · {perspective.questionCategory}
               </p>
-              <blockquote className="font-wisdom text-xl sm:text-2xl leading-relaxed text-slate-900 dark:text-white text-balance">
+              <blockquote className="font-wisdom text-xl sm:text-2xl leading-relaxed text-slate-900 dark:text-white text-balance break-words">
                 “{perspective.body}”
               </blockquote>
             </div>
@@ -292,6 +324,12 @@ export function PerspectivePage() {
               })}
             </div>
 
+            {actionError && (
+              <p className="text-center text-xs text-rose-500" role="alert">
+                {actionError}
+              </p>
+            )}
+
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
@@ -306,7 +344,7 @@ export function PerspectivePage() {
               </button>
 
               <Link
-                to={`/questions/${perspective.questionId}`}
+                to={`/questions/${perspective.questionId}#answer-${perspective.id}`}
                 className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-indigo-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/60"
               >
                 Read More
@@ -317,7 +355,7 @@ export function PerspectivePage() {
                 type="button"
                 disabled={isFetching}
                 onClick={handleNext}
-                className="min-h-[44px] inline-flex items-center gap-2 rounded-xl bg-cyan-600 dark:bg-cyan-500 px-5 py-2 text-sm font-semibold text-white dark:text-slate-950 hover:bg-cyan-500 cursor-pointer"
+                className="min-h-[44px] inline-flex items-center gap-2 rounded-xl bg-cyan-600 dark:bg-cyan-500 px-5 py-2 text-sm font-semibold text-white dark:text-slate-950 hover:bg-cyan-500 disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
                 Another Perspective

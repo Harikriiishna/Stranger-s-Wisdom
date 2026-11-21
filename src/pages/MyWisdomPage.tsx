@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Edit3, FileText, Trash2 } from 'lucide-react';
+import { Archive, Edit3, FileText, Trash2, X } from 'lucide-react';
 import { AnswerCard } from '../components/AnswerCard';
 import { Layout } from '../components/Layout';
 import { QuestionCard } from '../components/QuestionCard';
@@ -18,6 +18,14 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabId>(defaultTab);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmDeleteQuestionId, setConfirmDeleteQuestionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTab(defaultTab);
+    setConfirmDeleteQuestionId(null);
+    setActionError(null);
+  }, [defaultTab]);
 
   const myQs = useQuery({
     queryKey: ['my-questions'],
@@ -45,14 +53,27 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
 
   const deleteDraftMutation = useMutation({
     mutationFn: myWisdomApi.deleteDraft,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['drafts'] }),
+    onSuccess: () => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to delete draft.');
+    },
   });
 
   const deleteQuestionMutation = useMutation({
     mutationFn: questionsApi.remove,
     onSuccess: () => {
+      setActionError(null);
+      setConfirmDeleteQuestionId(null);
       queryClient.invalidateQueries({ queryKey: ['my-questions'] });
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
       queryClient.invalidateQueries({ queryKey: ['home'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to delete question.');
     },
   });
 
@@ -106,6 +127,23 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
           </Link>
         </div>
 
+        {actionError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-rose-500/35 bg-rose-500/10 px-4 py-3 text-xs text-rose-700 dark:text-rose-200"
+          >
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              aria-label="Dismiss error"
+              className="min-h-[32px] min-w-[32px] flex items-center justify-center cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
           {tabs.map((t) => (
             <button
@@ -140,24 +178,47 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
               {activeQuestions.map((q) => (
                 <div key={q.id} className="space-y-2">
                   <QuestionCard question={q} />
-                  <div className="flex items-center justify-end gap-2 px-2">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/ask?edit=${q.id}`)}
-                      className="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg px-3 text-xs text-slate-500 hover:text-cyan-500 cursor-pointer"
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteQuestionMutation.mutate(q.id)}
-                      className="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg px-3 text-xs text-slate-500 hover:text-rose-500 cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </button>
-                  </div>
+                  {confirmDeleteQuestionId === q.id ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2 px-2 text-xs">
+                      <span className="text-rose-600 dark:text-rose-300 font-medium">
+                        Delete this question?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteQuestionId(null)}
+                        className="min-h-[36px] rounded-lg px-3 text-slate-600 dark:text-slate-300 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deleteQuestionMutation.isPending}
+                        onClick={() => deleteQuestionMutation.mutate(q.id)}
+                        className="min-h-[36px] rounded-lg bg-rose-600 px-3 font-semibold text-white disabled:opacity-50 cursor-pointer"
+                      >
+                        {deleteQuestionMutation.isPending ? 'Deleting...' : 'Confirm delete'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-end gap-2 px-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/ask?edit=${q.id}`)}
+                        className="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg px-3 text-xs text-slate-500 hover:text-cyan-500 cursor-pointer"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteQuestionId(q.id)}
+                        className="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg px-3 text-xs text-slate-500 hover:text-rose-500 cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -199,10 +260,13 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
                       onEdit={async (a, newBody, newType) => {
                         await answersApi.update(a.id, { body: newBody, answerType: newType });
                         queryClient.invalidateQueries({ queryKey: ['my-answers'] });
+                        queryClient.invalidateQueries({ queryKey: ['questions'] });
                       }}
                       onDelete={async (id) => {
                         await answersApi.remove(id);
                         queryClient.invalidateQueries({ queryKey: ['my-answers'] });
+                        queryClient.invalidateQueries({ queryKey: ['questions'] });
+                        queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
                       }}
                     />
                   </div>
@@ -241,14 +305,25 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
                       authorLabel: 'Anonymous Stranger',
                     }}
                     onReact={async (answerId, rx) => {
-                      await answersApi.react(answerId, rx);
-                      queryClient.invalidateQueries({ queryKey: ['my-received'] });
+                      setActionError(null);
+                      try {
+                        await answersApi.react(answerId, rx);
+                        queryClient.invalidateQueries({ queryKey: ['my-received'] });
+                      } catch (err) {
+                        setActionError(err instanceof Error ? err.message : 'Unable to react.');
+                      }
                     }}
                     onToggleSave={async (a) => {
-                      if (a.isSaved) await answersApi.unsave(a.id);
-                      else await answersApi.save(a.id);
-                      queryClient.invalidateQueries({ queryKey: ['my-received'] });
-                      queryClient.invalidateQueries({ queryKey: ['saved'] });
+                      setActionError(null);
+                      try {
+                        if (a.isSaved) await answersApi.unsave(a.id);
+                        else await answersApi.save(a.id);
+                        queryClient.invalidateQueries({ queryKey: ['my-received'] });
+                        queryClient.invalidateQueries({ queryKey: ['saved'] });
+                        queryClient.invalidateQueries({ queryKey: ['profile-stats'] });
+                      } catch (err) {
+                        setActionError(err instanceof Error ? err.message : 'Unable to save answer.');
+                      }
                     }}
                   />
                 </div>
@@ -309,7 +384,11 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
         )}
 
         {tab === 'completed' && (
-          archivedQuestions.length === 0 ? (
+          myQs.isLoading ? (
+            <LoadingSkeleton count={2} />
+          ) : myQs.isError ? (
+            <ErrorState onRetry={() => myQs.refetch()} />
+          ) : archivedQuestions.length === 0 ? (
             <EmptyState
               title="No archived conversations."
               subtitle="Questions you close or archive appear here for quiet reflection."
@@ -323,8 +402,17 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
                     <button
                       type="button"
                       onClick={async () => {
-                        await questionsApi.update(q.id, { status: 'open' });
-                        queryClient.invalidateQueries({ queryKey: ['my-questions'] });
+                        setActionError(null);
+                        try {
+                          await questionsApi.update(q.id, { status: 'open' });
+                          queryClient.invalidateQueries({ queryKey: ['my-questions'] });
+                          queryClient.invalidateQueries({ queryKey: ['questions'] });
+                          queryClient.invalidateQueries({ queryKey: ['home'] });
+                        } catch (err) {
+                          setActionError(
+                            err instanceof Error ? err.message : 'Unable to reopen question.'
+                          );
+                        }
                       }}
                       className="min-h-[36px] inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
                     >

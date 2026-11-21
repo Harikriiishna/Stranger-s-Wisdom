@@ -131,7 +131,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content Shell */}
-      <div className="flex-1 md:pl-64 lg:pl-72 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 md:pl-64 lg:pl-72 flex flex-col min-h-screen">
         {/* Mobile Top Bar (Three-Zone Contract, compact 52px) */}
         <header className="md:hidden sticky top-0 z-30 h-14 px-4 flex items-center justify-between gap-4 border-b border-slate-200/80 dark:border-indigo-950/70 bg-white/90 dark:bg-[#070B19]/90 backdrop-blur-md pt-safe">
           <Link
@@ -164,10 +164,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Scrollable Content */}
-        <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10 pb-24 md:pb-12">
+        <main className="flex-1 min-w-0 w-full max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10 pb-28 md:pb-24">
           {children}
         </main>
       </div>
+
+      {/* Persistent Desktop & Tablet Floating Action Button */}
+      {location.pathname !== '/ask' && (
+        <Link
+          to="/ask"
+          aria-label="Ask a Question"
+          className="hidden md:inline-flex fixed bottom-6 right-6 z-40 min-h-[48px] items-center gap-2.5 rounded-2xl bg-cyan-600 dark:bg-cyan-500 px-5 py-3 text-sm font-semibold text-white dark:text-slate-950 shadow-lg shadow-cyan-600/25 dark:shadow-cyan-500/25 hover:bg-cyan-500 dark:hover:bg-cyan-400 hover:-translate-y-0.5 active:scale-95 transition-all"
+        >
+          <Feather className="h-4 w-4 shrink-0" />
+          <span className="whitespace-nowrap">Ask a Question</span>
+        </Link>
+      )}
 
       {/* Mobile Bottom Navigation Bar */}
       <nav
@@ -205,17 +217,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           <Link
             to="/ask"
-            aria-label="Ask a question"
-            className="flex flex-col items-center justify-center min-h-[44px]"
+            aria-label="Ask a Question"
+            title="Ask a Question"
+            className="flex flex-col items-center justify-center min-h-[44px] group"
           >
             <span
-              className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-md transition-transform active:scale-95 ${
+              className={`-mt-5 flex h-12 w-12 items-center justify-center rounded-2xl ring-4 ring-white dark:ring-[#090F22] shadow-lg shadow-cyan-600/30 dark:shadow-cyan-500/30 transition-transform group-active:scale-95 ${
                 location.pathname === '/ask'
                   ? 'bg-cyan-400 text-slate-950'
-                  : 'bg-cyan-600 dark:bg-cyan-500 text-white dark:text-slate-950'
+                  : 'bg-cyan-600 dark:bg-cyan-500 text-white dark:text-slate-950 hover:bg-cyan-500 dark:hover:bg-cyan-400'
               }`}
             >
               <Plus className="h-5 w-5" />
+            </span>
+            <span
+              className={`mt-0.5 text-[11px] font-semibold whitespace-nowrap ${
+                location.pathname === '/ask'
+                  ? 'text-cyan-600 dark:text-cyan-400'
+                  : 'text-cyan-700 dark:text-cyan-300'
+              }`}
+            >
+              Ask
             </span>
           </Link>
 
