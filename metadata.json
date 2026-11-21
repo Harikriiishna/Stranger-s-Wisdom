@@ -1,0 +1,8 @@
+{
+  "name": "Stranger's Wisdom",
+  "description": "Sometimes the right words come from someone you've never met. An anonymous human connection platform for meaningful questions, lived experiences, and thoughtful perspectives.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
