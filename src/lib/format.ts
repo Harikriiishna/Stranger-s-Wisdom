@@ -43,11 +43,17 @@ export const ANSWER_TYPES = [
 ] as const;
 
 export const REACTION_TYPES = [
-  { id: 'this_helped', label: 'This Helped Me' },
-  { id: 'i_understand', label: 'I Understand' },
-  { id: 'i_needed_this', label: 'I Needed This' },
-  { id: 'thank_you', label: 'Thank You' },
-  { id: 'different_perspective', label: 'Different Perspective' },
+  { id: 'insightful', emoji: '💡', label: 'Insightful' },
+  { id: 'empathetic', emoji: '🤍', label: 'Empathetic' },
+  { id: 'thought_provoking', emoji: '🤔', label: 'Thought-provoking' },
+  { id: 'this_helped', emoji: '✨', label: 'This Helped' },
+  { id: 'thank_you', emoji: '🙏', label: 'Thank You' },
+] as const;
+
+export const LEGACY_REACTION_TYPES = [
+  { id: 'i_understand', emoji: '🫶', label: 'I Understand' },
+  { id: 'i_needed_this', emoji: '🌱', label: 'I Needed This' },
+  { id: 'different_perspective', emoji: '🔄', label: 'Different Perspective' },
 ] as const;
 
 export const REPORT_REASONS = [

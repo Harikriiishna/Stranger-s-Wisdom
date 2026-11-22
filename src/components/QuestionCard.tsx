@@ -78,6 +78,8 @@ export function QuestionCard({
           <CardContextMenu
             triggerLabel="Question options"
             shareUrl={getQuestionShareUrl(question.id)}
+            shareTitle={question.title}
+            shareText={question.body || `${question.category} · ${question.questionType}`}
             items={menuItems}
           />
         </div>

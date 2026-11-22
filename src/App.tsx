@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppErrorBoundary } from './components/StateViews';
 import { AuthProvider } from './contexts/AuthContext';
 import { RealtimeProvider } from './contexts/RealtimeContext';
+import { ApiError } from './lib/api';
 import { AskQuestionPage } from './pages/AskQuestionPage';
 import {
   ForgotPasswordPage,
@@ -30,7 +31,16 @@ import { SavedAndCollectionsPage } from './pages/SavedAndCollectionsPage';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
+      networkMode: 'always',
+      retry: (failureCount, error) => {
+        if (
+          error instanceof ApiError &&
+          (error.status === 0 || error.status === 408)
+        ) {
+          return false;
+        }
+        return failureCount < 2;
+      },
       staleTime: 15000,
       refetchOnWindowFocus: true,
     },

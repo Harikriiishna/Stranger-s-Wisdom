@@ -132,7 +132,7 @@ export function ExplorePage() {
         </div>
 
         {/* Category Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
           {EXPLORE_CHIPS.map((chip) => (
             <button
               key={chip}

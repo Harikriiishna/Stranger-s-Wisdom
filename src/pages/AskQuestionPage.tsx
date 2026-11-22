@@ -331,7 +331,7 @@ export function AskQuestionPage() {
                 maxLength={220}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. How did you keep going when everyone else seemed ahead?"
+                placeholder="What question is on your mind?"
                 className="w-full min-h-[48px] rounded-xl border border-slate-300 dark:border-indigo-900 bg-slate-50 dark:bg-[#070B19] px-4 text-base text-slate-900 dark:text-white focus:border-cyan-500 focus:outline-none"
               />
               <p className="mt-1.5 font-tabular text-xs text-slate-400">
@@ -391,7 +391,7 @@ export function AskQuestionPage() {
                   type="text"
                   value={tagsText}
                   onChange={(e) => setTagsText(e.target.value)}
-                  placeholder="crossroads, patience, change"
+                  placeholder="Add optional topics, separated by commas"
                   className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-indigo-900 bg-slate-50 dark:bg-[#070B19] px-3.5 text-sm focus:border-cyan-500 focus:outline-none"
                 />
               </div>

@@ -7,13 +7,76 @@ import {
   ExternalLink,
   Flag,
   FolderPlus,
-  Heart,
   Trash2,
 } from 'lucide-react';
 import { getAnswerShareUrl } from '../lib/clipboard';
-import { ANSWER_TYPES, formatTimeAgo, REACTION_TYPES } from '../lib/format';
+import {
+  ANSWER_TYPES,
+  formatTimeAgo,
+  LEGACY_REACTION_TYPES,
+  REACTION_TYPES,
+} from '../lib/format';
 import type { AnswerItem, CollectionItem } from '../types';
 import { CardContextMenu, type ContextMenuItem } from './CardContextMenu';
+
+export function AnswerReactionsBar({
+  answerId,
+  reactionCounts,
+  userReactions,
+  onReact,
+  compact = false,
+  align = 'start',
+}: {
+  answerId: string;
+  reactionCounts?: Record<string, number>;
+  userReactions?: string[];
+  onReact: (answerId: string, reactionType: string) => void;
+  compact?: boolean;
+  align?: 'start' | 'center';
+}) {
+  const extraLegacy = LEGACY_REACTION_TYPES.filter(
+    (rx) => (reactionCounts?.[rx.id] ?? 0) > 0 || userReactions?.includes(rx.id)
+  );
+  const allButtons = [...REACTION_TYPES, ...extraLegacy];
+
+  return (
+    <div
+      className={`flex flex-wrap gap-1.5 sm:gap-2 ${
+        align === 'center' ? 'justify-center' : 'justify-start'
+      }`}
+    >
+      {allButtons.map((rx) => {
+        const active = Boolean(userReactions?.includes(rx.id));
+        const total = reactionCounts?.[rx.id] ?? 0;
+        return (
+          <button
+            key={rx.id}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onReact(answerId, rx.id)}
+            className={`inline-flex items-center gap-1.5 rounded-xl border font-medium transition-all cursor-pointer whitespace-nowrap active:scale-[0.98] ${
+              compact
+                ? 'min-h-[34px] px-2.5 py-1 text-[11px]'
+                : 'min-h-[38px] px-3 py-1.5 text-xs'
+            } ${
+              active
+                ? 'border-teal-500/60 bg-teal-500/15 text-teal-700 dark:text-teal-300 shadow-sm'
+                : 'border-slate-200 dark:border-indigo-950/90 bg-slate-50/70 dark:bg-[#0A0F20] text-slate-600 dark:text-slate-300 hover:border-cyan-500/45 hover:bg-slate-100/80 dark:hover:bg-indigo-950/50 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <span aria-hidden="true" className={compact ? 'text-xs leading-none' : 'text-sm leading-none'}>
+              {rx.emoji}
+            </span>
+            <span>{rx.label}</span>
+            {total > 0 && (
+              <span className="font-tabular opacity-85">· {total}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function AnswerCard({
   answer,
@@ -25,6 +88,7 @@ export function AnswerCard({
   collections,
   onAddToCollection,
   highlighted = false,
+  focusMode = false,
 }: {
   answer: AnswerItem;
   onReact?: (answerId: string, reactionType: string) => void;
@@ -35,6 +99,7 @@ export function AnswerCard({
   collections?: CollectionItem[];
   onAddToCollection?: (collectionId: string, answerId: string) => Promise<void>;
   highlighted?: boolean;
+  focusMode?: boolean;
 }) {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -110,7 +175,9 @@ export function AnswerCard({
   return (
     <article
       id={`answer-${answer.id}`}
-      className={`rounded-2xl border bg-white dark:bg-[#0D1326] p-5 sm:p-6 transition-shadow ${
+      className={`rounded-2xl border bg-white dark:bg-[#0D1326] transition-shadow ${
+        focusMode ? 'p-6 sm:p-9' : 'p-5 sm:p-6'
+      } ${
         highlighted
           ? 'border-cyan-500/70 ring-2 ring-cyan-500/20'
           : 'border-slate-200/90 dark:border-indigo-950/80'
@@ -127,6 +194,7 @@ export function AnswerCard({
           <span className="font-tabular">{formatTimeAgo(answer.createdAt)}</span>
         </div>
 
+        {!focusMode && (
         <div className="flex items-center gap-1 shrink-0">
           {onToggleSave && (
             <button
@@ -240,9 +308,12 @@ export function AnswerCard({
           <CardContextMenu
             triggerLabel="Answer options"
             shareUrl={getAnswerShareUrl(answer.questionId, answer.id)}
+            shareTitle={answer.questionTitle || "Thoughtful perspective on Stranger's Wisdom"}
+            shareText={answer.body}
             items={contextItems}
           />
         </div>
+        )}
       </div>
 
       {confirmDelete && (
@@ -276,7 +347,7 @@ export function AnswerCard({
         </p>
       )}
 
-      {editing ? (
+      {!focusMode && editing ? (
         <div className="mt-3 space-y-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             {ANSWER_TYPES.map((type) => (
@@ -327,38 +398,25 @@ export function AnswerCard({
           </div>
         </div>
       ) : (
-        <div className="mt-3.5 font-wisdom text-[15.5px] sm:text-base leading-[1.75] text-slate-800 dark:text-slate-200 whitespace-pre-line break-words">
+        <div
+          className={`mt-4 font-wisdom whitespace-pre-line break-words ${
+            focusMode
+              ? 'text-[17.5px] sm:text-[18.5px] leading-[1.88] text-slate-800 dark:text-slate-100'
+              : 'text-[15.5px] sm:text-base leading-[1.75] text-slate-800 dark:text-slate-200'
+          }`}
+        >
           {answer.body}
         </div>
       )}
 
-      {onReact && (
-        <div className="mt-5 pt-4 border-t border-slate-100 dark:border-indigo-950/60 flex flex-wrap gap-2">
-          {REACTION_TYPES.map((rx) => {
-            const active = answer.userReactions?.includes(rx.id);
-            const total = answer.reactionCounts?.[rx.id] ?? 0;
-            return (
-              <button
-                key={rx.id}
-                type="button"
-                onClick={() => onReact(answer.id, rx.id)}
-                className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                  active
-                    ? 'border-teal-500/60 bg-teal-500/15 text-teal-700 dark:text-teal-300'
-                    : 'border-slate-200 dark:border-indigo-950/90 bg-slate-50/70 dark:bg-[#0A0F20] text-slate-600 dark:text-slate-400 hover:border-cyan-500/40 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
-              >
-                <Heart
-                  className="h-3.5 w-3.5"
-                  fill={active ? 'currentColor' : 'none'}
-                />
-                <span>{rx.label}</span>
-                {total > 0 && (
-                  <span className="font-tabular opacity-80">· {total}</span>
-                )}
-              </button>
-            );
-          })}
+      {!focusMode && onReact && (
+        <div className="mt-5 pt-4 border-t border-slate-100 dark:border-indigo-950/60">
+          <AnswerReactionsBar
+            answerId={answer.id}
+            reactionCounts={answer.reactionCounts}
+            userReactions={answer.userReactions}
+            onReact={onReact}
+          />
         </div>
       )}
     </article>

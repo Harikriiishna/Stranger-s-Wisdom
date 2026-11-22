@@ -5,11 +5,13 @@ import {
   Archive,
   ArrowLeft,
   Bookmark,
+  BookOpen,
   Check,
   Edit3,
   EyeOff,
   Flag,
   LockOpen,
+  Minimize2,
   Send,
   Share2,
   ShieldCheck,
@@ -29,7 +31,7 @@ import {
 } from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { answersApi, questionsApi, savedApi } from '../lib/api';
-import { copyTextToClipboard, getQuestionShareUrl } from '../lib/clipboard';
+import { getQuestionShareUrl, shareContent } from '../lib/clipboard';
 import { ANSWER_TYPES, formatStatusLabel, formatTimeAgo } from '../lib/format';
 import type { AnswerItem, CrisisResources } from '../types';
 
@@ -48,13 +50,14 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
   const [answerSuccess, setAnswerSuccess] = useState(false);
   const [crisisResources, setCrisisResources] = useState<CrisisResources | null>(null);
-  const [copiedShare, setCopiedShare] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<'idle' | 'shared' | 'copied'>('idle');
   const [confirmDeleteQuestion, setConfirmDeleteQuestion] = useState(false);
   const [deletingQuestion, setDeletingQuestion] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
     type: 'question' | 'answer';
     id: string;
   } | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
 
   useEffect(() => {
     setShowEditor(openEditorByDefault);
@@ -64,7 +67,19 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
     setAnswerSuccess(false);
     setCrisisResources(null);
     setConfirmDeleteQuestion(false);
+    setFocusMode(false);
   }, [id, openEditorByDefault]);
+
+  useEffect(() => {
+    if (!focusMode || reportTarget) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setFocusMode(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [focusMode, reportTarget]);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['question', id],
@@ -240,40 +255,64 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
   const handleShare = async () => {
     const shareUrl = id ? getQuestionShareUrl(id) : window.location.href;
     setActionError(null);
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: data?.question.title || "Stranger's Wisdom",
-          url: shareUrl,
-        });
-        setCopiedShare(true);
-        setTimeout(() => setCopiedShare(false), 2000);
-        return;
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-    }
+    const outcome = await shareContent({
+      title: data?.question.title || "Stranger's Wisdom",
+      text: data?.question.body || `${data?.question.category || 'Reflection'} · Stranger's Wisdom`,
+      url: shareUrl,
+    });
 
-    const copied = await copyTextToClipboard(shareUrl);
-    if (copied) {
-      setCopiedShare(true);
-      setTimeout(() => setCopiedShare(false), 2000);
-    } else {
+    if (outcome === 'shared' || outcome === 'copied') {
+      setShareFeedback(outcome);
+      setTimeout(() => setShareFeedback('idle'), 2000);
+    } else if (outcome === 'failed') {
       setActionError('Could not copy link automatically. Please copy the URL from your browser address bar.');
     }
   };
 
   return (
-    <Layout>
-      <div className="max-w-3xl mx-auto space-y-6">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="min-h-[44px] inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </button>
+    <Layout focusMode={focusMode}>
+      <div className={focusMode ? 'max-w-[65ch] mx-auto space-y-8' : 'max-w-3xl mx-auto space-y-6'}>
+        <div className="flex items-center justify-between gap-3">
+          {!focusMode ? (
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="min-h-[44px] inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">
+              Focus Mode · Reading view
+            </span>
+          )}
+
+          {data && (
+            <button
+              type="button"
+              aria-pressed={focusMode}
+              onClick={() => setFocusMode((v) => !v)}
+              className={`min-h-[40px] inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+                focusMode
+                  ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
+                  : 'border-slate-200 dark:border-indigo-900 bg-white/70 dark:bg-[#0D1326] text-slate-600 dark:text-slate-300 hover:border-cyan-500/40 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              {focusMode ? (
+                <>
+                  <Minimize2 className="h-3.5 w-3.5" />
+                  <span>Exit Focus Mode</span>
+                </>
+              ) : (
+                <>
+                  <BookOpen className="h-3.5 w-3.5" />
+                  <span>Focus Mode</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
 
         {isLoading ? (
           <LoadingSkeleton count={3} />
@@ -285,7 +324,11 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
         ) : (
           <>
             {/* Question Header Card */}
-            <section className="rounded-3xl border border-slate-200/90 dark:border-indigo-950 bg-white dark:bg-[#0D1326] p-6 sm:p-8 space-y-5">
+            <section
+              className={`rounded-3xl border border-slate-200/90 dark:border-indigo-950 bg-white dark:bg-[#0D1326] ${
+                focusMode ? 'p-7 sm:p-10 space-y-6' : 'p-6 sm:p-8 space-y-5'
+              }`}
+            >
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-cyan-700 dark:text-cyan-400">
@@ -303,12 +346,24 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                 <span>{data.question.authorLabel}</span>
               </div>
 
-              <h1 className="font-wisdom text-2xl sm:text-3xl font-medium leading-snug text-slate-900 dark:text-white text-balance">
+              <h1
+                className={`font-wisdom font-medium text-slate-900 dark:text-white text-balance ${
+                  focusMode
+                    ? 'text-2xl sm:text-[2.1rem] leading-[1.3]'
+                    : 'text-2xl sm:text-3xl leading-snug'
+                }`}
+              >
                 {data.question.title}
               </h1>
 
               {data.question.body && (
-                <p className="text-base leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
+                <p
+                  className={`whitespace-pre-line ${
+                    focusMode
+                      ? 'font-wisdom text-[17.5px] sm:text-[18.5px] leading-[1.88] text-slate-700 dark:text-slate-200'
+                      : 'text-base leading-relaxed text-slate-700 dark:text-slate-300'
+                  }`}
+                >
                   {data.question.body}
                 </p>
               )}
@@ -319,6 +374,7 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                 </p>
               )}
 
+              {!focusMode && (
               <div className="pt-4 border-t border-slate-100 dark:border-indigo-950/60 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {data.question.status !== 'archived' && (
@@ -348,8 +404,16 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                     onClick={handleShare}
                     className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-indigo-900 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-indigo-950/60 cursor-pointer"
                   >
-                    {copiedShare ? <Check className="h-4 w-4 text-teal-500" /> : <Share2 className="h-4 w-4" />}
-                    {copiedShare ? 'Link copied' : 'Share'}
+                    {shareFeedback !== 'idle' ? (
+                      <Check className="h-4 w-4 text-teal-500" />
+                    ) : (
+                      <Share2 className="h-4 w-4" />
+                    )}
+                    {shareFeedback === 'shared'
+                      ? 'Shared'
+                      : shareFeedback === 'copied'
+                      ? 'Link copied'
+                      : 'Share'}
                   </button>
                 </div>
 
@@ -418,6 +482,8 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                   <CardContextMenu
                     triggerLabel="Question options"
                     shareUrl={getQuestionShareUrl(data.question.id)}
+                    shareTitle={data.question.title}
+                    shareText={data.question.body || `${data.question.category} · ${data.question.questionType}`}
                     items={[
                       {
                         label: data.question.isSaved ? 'Remove from saved' : 'Save question',
@@ -448,8 +514,9 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                   />
                 </div>
               </div>
+              )}
 
-              {confirmDeleteQuestion && (
+              {!focusMode && confirmDeleteQuestion && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/35 bg-rose-500/10 p-4 text-xs">
                   <span className="text-rose-700 dark:text-rose-200 font-medium">
                     Permanently delete this question and all its answers?
@@ -492,7 +559,7 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
               )}
             </section>
 
-            {answerSuccess && (
+            {!focusMode && answerSuccess && (
               <div className="space-y-4">
                 <SuccessConfirmation
                   title="Your answer has reached someone."
@@ -505,7 +572,7 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
             )}
 
             {/* Answer Editor */}
-            {showEditor && data.question.status !== 'archived' && (
+            {!focusMode && showEditor && data.question.status !== 'archived' && (
               <form
                 onSubmit={handleAnswerSubmit}
                 className="rounded-3xl border border-cyan-500/35 bg-white dark:bg-[#0D1326] p-6 sm:p-8 space-y-5"
@@ -591,19 +658,20 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                   title="No answers yet."
                   subtitle="If you have lived through something similar, your perspective could mean a lot here."
                   actionLabel={
-                    data.question.status !== 'archived'
+                    !focusMode && data.question.status !== 'archived'
                       ? 'Write the first answer'
                       : undefined
                   }
                   onAction={() => setShowEditor(true)}
                 />
               ) : (
-                <div className="space-y-4">
+                <div className={focusMode ? 'space-y-6' : 'space-y-4'}>
                   {data.answers.map((ans) => (
                     <AnswerCard
                       key={ans.id}
                       answer={ans}
                       highlighted={highlightedAnswerId === ans.id}
+                      focusMode={focusMode}
                       onReact={handleReact}
                       onToggleSave={handleToggleSaveAnswer}
                       onReport={(ansId) =>
@@ -618,6 +686,19 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                       }}
                     />
                   ))}
+                </div>
+              )}
+
+              {focusMode && (
+                <div className="pt-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setFocusMode(false)}
+                    className="min-h-[42px] inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-indigo-900 px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-cyan-500/40 cursor-pointer"
+                  >
+                    <Minimize2 className="h-3.5 w-3.5" />
+                    Exit Focus Mode
+                  </button>
                 </div>
               )}
             </section>

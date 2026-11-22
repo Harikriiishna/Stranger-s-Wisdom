@@ -19,6 +19,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const timerRef = useRef<number | null>(null);
 
   const connect = () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       return;
     }

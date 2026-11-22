@@ -144,7 +144,7 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
           {tabs.map((t) => (
             <button
               key={t.id}

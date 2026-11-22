@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Bookmark, Feather, Sparkles, X } from 'lucide-react';
+import { AnswerReactionsBar } from '../components/AnswerCard';
 import { CardContextMenu } from '../components/CardContextMenu';
 import { Layout } from '../components/Layout';
 import { QuestionCard } from '../components/QuestionCard';
@@ -69,6 +70,30 @@ export function HomePage() {
     },
   });
 
+  const reactAnswerMutation = useMutation({
+    mutationFn: async ({
+      answerId,
+      reactionType,
+    }: {
+      answerId: string;
+      reactionType: string;
+    }) => {
+      if (!profile) {
+        navigate('/signin');
+        return;
+      }
+      setActionError(null);
+      await answersApi.react(answerId, reactionType);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      queryClient.invalidateQueries({ queryKey: ['question'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : 'Unable to update reaction.');
+    },
+  });
+
   return (
     <Layout>
       <div className="space-y-10 min-w-0">
@@ -126,8 +151,15 @@ export function HomePage() {
           <LoadingSkeleton count={4} />
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
-        ) : !data ? (
+        ) : !data ||
+          (!data.featuredQuestion &&
+            (data.wisdomFromStrangers ?? []).length === 0 &&
+            (data.unansweredQuestions ?? []).length === 0 &&
+            !data.differentPerspective &&
+            (data.quietMoments ?? []).length === 0) ? (
           <EmptyState
+            title="No questions shared yet."
+            subtitle="Ask what is genuinely on your mind, or check back as new reflections arrive."
             actionLabel="Ask the first question"
             onAction={() => navigate('/ask')}
           />
@@ -190,6 +222,16 @@ export function HomePage() {
                         </p>
                       </div>
 
+                      <AnswerReactionsBar
+                        answerId={item.id}
+                        reactionCounts={item.reactionCounts}
+                        userReactions={item.userReactions}
+                        compact
+                        onReact={(answerId, reactionType) =>
+                          reactAnswerMutation.mutate({ answerId, reactionType })
+                        }
+                      />
+
                       <div className="pt-3 border-t border-slate-100 dark:border-indigo-950/60 flex items-center justify-between gap-2 min-w-0">
                         <Link
                           to={`/questions/${item.questionId}#answer-${item.id}`}
@@ -221,6 +263,8 @@ export function HomePage() {
                           <CardContextMenu
                             triggerLabel="Answer options"
                             shareUrl={getAnswerShareUrl(item.questionId, item.id)}
+                            shareTitle={item.questionTitle}
+                            shareText={item.body}
                             items={[
                               {
                                 label: item.isSaved ? 'Remove from saved' : 'Save wisdom',
@@ -298,6 +342,15 @@ export function HomePage() {
                   <blockquote className="font-wisdom text-lg sm:text-xl leading-relaxed text-slate-900 dark:text-slate-100">
                     “{data.differentPerspective.body}”
                   </blockquote>
+                  <AnswerReactionsBar
+                    answerId={data.differentPerspective.id}
+                    reactionCounts={data.differentPerspective.reactionCounts}
+                    userReactions={data.differentPerspective.userReactions}
+                    compact
+                    onReact={(answerId, reactionType) =>
+                      reactAnswerMutation.mutate({ answerId, reactionType })
+                    }
+                  />
                   <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
                     <Link
                       to={`/questions/${data.differentPerspective.questionId}#answer-${data.differentPerspective.id}`}
@@ -328,6 +381,8 @@ export function HomePage() {
                           data.differentPerspective.questionId,
                           data.differentPerspective.id
                         )}
+                        shareTitle={data.differentPerspective.questionTitle}
+                        shareText={data.differentPerspective.body}
                       />
                     </div>
                   </div>

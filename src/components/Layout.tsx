@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -18,11 +18,25 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { notificationsApi } from '../lib/api';
+import { OfflineIndicator, PWAInstallButton } from './PWAStatus';
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Layout({
+  children,
+  focusMode = false,
+}: {
+  children: React.ReactNode;
+  focusMode?: boolean;
+}) {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!location.hash && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [location.pathname, location.hash]);
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
@@ -54,9 +68,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070B19] text-slate-900 dark:text-slate-100 sanctuary-glow flex flex-col md:flex-row">
+    <div className="sanctuary-shell h-[100dvh] max-h-[100dvh] overflow-hidden md:h-auto md:max-h-none md:min-h-screen md:overflow-visible bg-slate-50 dark:bg-[#070B19] text-slate-900 dark:text-slate-100 sanctuary-glow flex flex-col md:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:w-64 lg:w-72 md:flex-col md:fixed md:inset-y-0 border-r border-slate-200/80 dark:border-indigo-950/70 bg-white/85 dark:bg-[#090F22]/90 backdrop-blur-md z-30">
+      {!focusMode && (
+        <aside className="hidden md:flex md:w-64 lg:w-72 md:flex-col md:fixed md:inset-y-0 border-r border-slate-200/80 dark:border-indigo-950/70 bg-white/85 dark:bg-[#090F22]/90 backdrop-blur-md z-30">
         <div className="p-6 pb-4">
           <Link to="/home" className="flex items-center gap-3 group">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/20 to-violet-500/20 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300">
@@ -108,7 +123,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-200/70 dark:border-indigo-950/70">
+        <div className="p-4 border-t border-slate-200/70 dark:border-indigo-950/70 space-y-2.5">
+          <PWAInstallButton variant="sidebar" />
           {profile ? (
             <Link
               to="/profile"
@@ -129,48 +145,171 @@ export function Layout({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </aside>
+      )}
 
       {/* Main Content Shell */}
-      <div className="flex-1 min-w-0 md:pl-64 lg:pl-72 flex flex-col min-h-screen">
-        {/* Mobile Top Bar (Three-Zone Contract, compact 52px) */}
-        <header className="md:hidden sticky top-0 z-30 h-14 px-4 flex items-center justify-between gap-4 border-b border-slate-200/80 dark:border-indigo-950/70 bg-white/90 dark:bg-[#070B19]/90 backdrop-blur-md pt-safe">
-          <Link
-            to="/home"
-            className="flex items-center gap-2 text-base font-semibold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0"
+      <div
+        className={`flex-1 min-w-0 min-h-0 flex flex-col md:min-h-screen ${
+          focusMode ? '' : 'md:pl-64 lg:pl-72'
+        }`}
+      >
+        {/* Mobile Top App Bar (Docked shrink-0 so it never drifts during scroll) */}
+        {!focusMode && (
+          <header className="md:hidden shrink-0 z-30 border-b border-slate-200/80 dark:border-indigo-950/70 bg-white/90 dark:bg-[#070B19]/90 backdrop-blur-md pt-safe select-none">
+            <div className="h-[52px] px-4 flex items-center justify-between gap-3">
+              <Link
+                to="/home"
+                className="flex items-center gap-2 text-base font-semibold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0"
+              >
+                <InfinityIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                <span>Stranger’s Wisdom</span>
+              </Link>
+
+              <div className="flex items-center gap-0.5 shrink-0">
+                <PWAInstallButton variant="compact" />
+                <Link
+                  to="/search"
+                  aria-label="Search questions"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 active:scale-95 transition-transform"
+                >
+                  <Search className="h-5 w-5" />
+                </Link>
+                <Link
+                  to="/notifications"
+                  aria-label="Notifications"
+                  className="relative min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 active:scale-95 transition-transform"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-amber-500" />
+                  )}
+                </Link>
+              </div>
+            </div>
+          </header>
+        )}
+
+        <OfflineIndicator />
+
+        {/* Dedicated App Scroll View (Mobile scrolls only here; Desktop scrolls document naturally) */}
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y md:overflow-visible"
+        >
+          <main
+            className={`w-full mx-auto ${
+              focusMode
+                ? 'max-w-3xl px-5 sm:px-8 py-6 sm:py-12 pb-12'
+                : 'max-w-5xl px-4 sm:px-8 py-5 sm:py-10 pb-8 md:pb-24'
+            }`}
           >
-            <InfinityIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-            <span>Stranger’s Wisdom</span>
-          </Link>
+            {children}
+          </main>
+        </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            <Link
-              to="/search"
-              aria-label="Search questions"
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300"
-            >
-              <Search className="h-5 w-5" />
-            </Link>
-            <Link
-              to="/notifications"
-              aria-label="Notifications"
-              className="relative min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300"
-            >
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-amber-500" />
-              )}
-            </Link>
-          </div>
-        </header>
+        {/* Mobile Bottom Navigation Bar (Docked shrink-0 inside 100dvh shell, unified baseline) */}
+        {!focusMode && (
+          <nav
+            aria-label="Mobile bottom navigation"
+            className="md:hidden shrink-0 z-40 border-t border-slate-200/90 dark:border-indigo-950/80 bg-white/95 dark:bg-[#090F22]/95 backdrop-blur-md select-none"
+          >
+            <div className="grid grid-cols-5 items-stretch px-1 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+              <NavLink
+                to="/home"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center min-h-[46px] py-0.5 text-[11px] font-medium transition-colors active:scale-95 ${
+                    isActive
+                      ? 'text-cyan-600 dark:text-cyan-400'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`
+                }
+              >
+                <span className="flex h-7 items-center justify-center">
+                  <Home className="h-5 w-5" />
+                </span>
+                <span className="mt-1 leading-none whitespace-nowrap">Home</span>
+              </NavLink>
 
-        {/* Scrollable Content */}
-        <main className="flex-1 min-w-0 w-full max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10 pb-28 md:pb-24">
-          {children}
-        </main>
+              <NavLink
+                to="/explore"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center min-h-[46px] py-0.5 text-[11px] font-medium transition-colors active:scale-95 ${
+                    isActive
+                      ? 'text-cyan-600 dark:text-cyan-400'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`
+                }
+              >
+                <span className="flex h-7 items-center justify-center">
+                  <Compass className="h-5 w-5" />
+                </span>
+                <span className="mt-1 leading-none whitespace-nowrap">Explore</span>
+              </NavLink>
+
+              <Link
+                to="/ask"
+                aria-label="Ask a Question"
+                title="Ask a Question"
+                className="flex flex-col items-center justify-center min-h-[46px] py-0.5 group active:scale-95 transition-transform"
+              >
+                <span
+                  className={`flex h-7 w-11 items-center justify-center rounded-xl shadow-sm transition-colors ${
+                    location.pathname === '/ask'
+                      ? 'bg-cyan-400 text-slate-950'
+                      : 'bg-cyan-600 dark:bg-cyan-500 text-white dark:text-slate-950 group-hover:bg-cyan-500 dark:group-hover:bg-cyan-400'
+                  }`}
+                >
+                  <Plus className="h-[18px] w-[18px] stroke-[2.5]" />
+                </span>
+                <span
+                  className={`mt-1 text-[11px] font-semibold leading-none whitespace-nowrap ${
+                    location.pathname === '/ask'
+                      ? 'text-cyan-600 dark:text-cyan-400'
+                      : 'text-cyan-700 dark:text-cyan-300'
+                  }`}
+                >
+                  Ask
+                </span>
+              </Link>
+
+              <NavLink
+                to="/my-wisdom"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center min-h-[46px] py-0.5 text-[11px] font-medium transition-colors active:scale-95 ${
+                    isActive
+                      ? 'text-cyan-600 dark:text-cyan-400'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`
+                }
+              >
+                <span className="flex h-7 items-center justify-center">
+                  <MessageSquareHeart className="h-5 w-5" />
+                </span>
+                <span className="mt-1 leading-none whitespace-nowrap">My Answers</span>
+              </NavLink>
+
+              <NavLink
+                to="/profile"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center min-h-[46px] py-0.5 text-[11px] font-medium transition-colors active:scale-95 ${
+                    isActive
+                      ? 'text-cyan-600 dark:text-cyan-400'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`
+                }
+              >
+                <span className="flex h-7 items-center justify-center">
+                  <User className="h-5 w-5" />
+                </span>
+                <span className="mt-1 leading-none whitespace-nowrap">Profile</span>
+              </NavLink>
+            </div>
+          </nav>
+        )}
       </div>
 
       {/* Persistent Desktop & Tablet Floating Action Button */}
-      {location.pathname !== '/ask' && (
+      {!focusMode && location.pathname !== '/ask' && (
         <Link
           to="/ask"
           aria-label="Ask a Question"
@@ -180,96 +319,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span className="whitespace-nowrap">Ask a Question</span>
         </Link>
       )}
-
-      {/* Mobile Bottom Navigation Bar */}
-      <nav
-        aria-label="Mobile bottom navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200/90 dark:border-indigo-950/80 bg-white/95 dark:bg-[#090F22]/95 backdrop-blur-md pb-safe"
-      >
-        <div className="grid grid-cols-5 items-center h-16 px-1">
-          <NavLink
-            to="/home"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center min-h-[44px] text-[11px] font-medium transition-colors ${
-                isActive
-                  ? 'text-cyan-600 dark:text-cyan-400'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`
-            }
-          >
-            <Home className="h-5 w-5" />
-            <span className="mt-1">Home</span>
-          </NavLink>
-
-          <NavLink
-            to="/explore"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center min-h-[44px] text-[11px] font-medium transition-colors ${
-                isActive
-                  ? 'text-cyan-600 dark:text-cyan-400'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`
-            }
-          >
-            <Compass className="h-5 w-5" />
-            <span className="mt-1">Explore</span>
-          </NavLink>
-
-          <Link
-            to="/ask"
-            aria-label="Ask a Question"
-            title="Ask a Question"
-            className="flex flex-col items-center justify-center min-h-[44px] group"
-          >
-            <span
-              className={`-mt-5 flex h-12 w-12 items-center justify-center rounded-2xl ring-4 ring-white dark:ring-[#090F22] shadow-lg shadow-cyan-600/30 dark:shadow-cyan-500/30 transition-transform group-active:scale-95 ${
-                location.pathname === '/ask'
-                  ? 'bg-cyan-400 text-slate-950'
-                  : 'bg-cyan-600 dark:bg-cyan-500 text-white dark:text-slate-950 hover:bg-cyan-500 dark:hover:bg-cyan-400'
-              }`}
-            >
-              <Plus className="h-5 w-5" />
-            </span>
-            <span
-              className={`mt-0.5 text-[11px] font-semibold whitespace-nowrap ${
-                location.pathname === '/ask'
-                  ? 'text-cyan-600 dark:text-cyan-400'
-                  : 'text-cyan-700 dark:text-cyan-300'
-              }`}
-            >
-              Ask
-            </span>
-          </Link>
-
-          <NavLink
-            to="/my-wisdom"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center min-h-[44px] text-[11px] font-medium transition-colors ${
-                isActive
-                  ? 'text-cyan-600 dark:text-cyan-400'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`
-            }
-          >
-            <MessageSquareHeart className="h-5 w-5" />
-            <span className="mt-1 whitespace-nowrap">My Answers</span>
-          </NavLink>
-
-          <NavLink
-            to="/profile"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center min-h-[44px] text-[11px] font-medium transition-colors ${
-                isActive
-                  ? 'text-cyan-600 dark:text-cyan-400'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`
-            }
-          >
-            <User className="h-5 w-5" />
-            <span className="mt-1">Profile</span>
-          </NavLink>
-        </div>
-      </nav>
     </div>
   );
 }

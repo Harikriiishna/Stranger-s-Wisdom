@@ -10,6 +10,8 @@ import type {
   UserProfile,
 } from '../types';
 
+import { readOfflineFallback, recordCacheableResponse } from './offlineCache';
+
 let memoryBearerToken: string | null = null;
 let authExpiredHandler: (() => void) | null = null;
 
@@ -39,6 +41,7 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Requested-With': 'StrangersWisdom',
@@ -47,6 +50,23 @@ export async function apiRequest<T>(
 
   if (memoryBearerToken && !headers['Authorization']) {
     headers['Authorization'] = `Bearer ${memoryBearerToken}`;
+  }
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (method === 'GET') {
+      const cached = await readOfflineFallback<T>(path);
+      if (cached !== null) {
+        return cached;
+      }
+      throw new ApiError(
+        'You are offline and this page has not been saved locally yet.',
+        0
+      );
+    }
+    throw new ApiError(
+      "You're currently offline. Please reconnect to save changes.",
+      0
+    );
   }
 
   let res: Response;
@@ -58,6 +78,12 @@ export async function apiRequest<T>(
       signal: options.signal ?? AbortSignal.timeout(20000),
     });
   } catch (err) {
+    if (method === 'GET') {
+      const cached = await readOfflineFallback<T>(path);
+      if (cached !== null) {
+        return cached;
+      }
+    }
     if (err instanceof DOMException && err.name === 'TimeoutError') {
       throw new ApiError('Request timed out. Please try again.', 408);
     }
@@ -82,6 +108,17 @@ export async function apiRequest<T>(
       data?.piiDetected
     );
   }
+
+  if (method === 'GET') {
+    void recordCacheableResponse(path, data);
+  } else if (
+    path.startsWith('/saved/') ||
+    path.startsWith('/collections')
+  ) {
+    // Keep /saved offline snapshot fresh even if user hasn't opened /saved yet
+    void savedApi.list().catch(() => undefined);
+  }
+
   return data as T;
 }
 

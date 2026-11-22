@@ -2,7 +2,12 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { auth, googleAuthProvider } from '../lib/firebase';
-import { authApi, profileApi, registerAuthExpiredHandler, setInMemoryToken } from '../lib/api';
+import { ApiError, authApi, profileApi, registerAuthExpiredHandler, setInMemoryToken } from '../lib/api';
+import {
+  clearUserOfflineData,
+  readOfflineSession,
+  saveOfflineSession,
+} from '../lib/offlineCache';
 import { applyThemeToDocument, isValidThemeMode } from '../lib/themes';
 import type { ThemeMode, UserProfile } from '../types';
 
@@ -53,6 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const applyAndStoreProfile = useCallback((next: UserProfile | null) => {
     profileIdRef.current = next?.id ?? null;
     setProfile(next);
+    if (next) {
+      saveOfflineSession(next);
+    }
     if (next?.theme && isValidThemeMode(next.theme)) {
       setThemeState(next.theme);
       applyThemeToDocument(next.theme);
@@ -67,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     registerAuthExpiredHandler(() => {
       setInMemoryToken(null);
+      void clearUserOfflineData();
       applyAndStoreProfile(null);
       queryClient.removeQueries({ predicate: (q) => ['my-questions', 'my-answers', 'my-received', 'drafts', 'saved', 'notifications', 'profile-stats', 'one-voice', 'moderation-status', 'moderation-dashboard'].includes(String(q.queryKey[0])) });
     });
@@ -80,9 +89,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         applyAndStoreProfile(res.profile);
       } else {
         setInMemoryToken(null);
+        void clearUserOfflineData();
         applyAndStoreProfile(null);
       }
-    } catch {
+    } catch (err) {
+      const isNetworkOffline =
+        (typeof navigator !== 'undefined' && !navigator.onLine) ||
+        (err instanceof ApiError && (err.status === 0 || err.status === 408));
+      if (isNetworkOffline) {
+        const offlineProfile = readOfflineSession();
+        if (offlineProfile) {
+          applyAndStoreProfile(offlineProfile);
+          return;
+        }
+      }
       setInMemoryToken(null);
       applyAndStoreProfile(null);
     } finally {
@@ -117,7 +137,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => unsub();
+    const onOnline = () => {
+      void refreshSession();
+    };
+    window.addEventListener('online', onOnline);
+
+    return () => {
+      window.removeEventListener('online', onOnline);
+      unsub();
+    };
   }, [refreshSession, applyAndStoreProfile]);
 
   const loginWithEmail = async (email: string, password: string) => {
@@ -159,6 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await authApi.logout().catch(() => undefined);
     await signOut(auth).catch(() => undefined);
     setInMemoryToken(null);
+    await clearUserOfflineData();
     applyAndStoreProfile(null);
     queryClient.clear();
   };

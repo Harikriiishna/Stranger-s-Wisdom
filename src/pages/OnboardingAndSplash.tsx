@@ -34,7 +34,7 @@ export function SplashScreen() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[#070B19] text-slate-100 flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
+    <div className="h-[100dvh] overflow-y-auto overscroll-y-contain md:h-auto md:min-h-screen bg-[#070B19] text-slate-100 flex flex-col items-center px-6 py-12 relative overflow-x-hidden">
       <div className="absolute inset-0 opacity-30 pointer-events-none">
         <img
           src="/src/assets/images/onboarding_sanctuary_1795241588374.jpg"
@@ -45,7 +45,7 @@ export function SplashScreen() {
         <div className="absolute inset-0 bg-gradient-to-t from-[#070B19] via-[#070B19]/75 to-[#070B19]/60" />
       </div>
 
-      <div className="relative z-10 max-w-md w-full text-center space-y-6">
+      <div className="relative z-10 my-auto max-w-md w-full text-center space-y-6">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-cyan-500/25 to-violet-500/25 border border-cyan-400/35 text-cyan-300 shadow-lg shadow-cyan-500/10">
           <InfinityIcon className="h-8 w-8" />
         </div>
@@ -102,8 +102,8 @@ export function OnboardingScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070B19] text-slate-900 dark:text-slate-100 flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-4xl rounded-3xl border border-slate-200/80 dark:border-indigo-950 bg-white dark:bg-[#0D1326] overflow-hidden shadow-2xl grid grid-cols-1 lg:grid-cols-2">
+    <div className="h-[100dvh] overflow-y-auto overscroll-y-contain md:h-auto md:min-h-screen bg-slate-50 dark:bg-[#070B19] text-slate-900 dark:text-slate-100 flex flex-col items-center p-4 sm:p-8">
+      <div className="my-auto w-full max-w-4xl rounded-3xl border border-slate-200/80 dark:border-indigo-950 bg-white dark:bg-[#0D1326] overflow-hidden shadow-2xl grid grid-cols-1 lg:grid-cols-2 shrink-0">
         <div className="relative min-h-[260px] lg:min-h-[540px] bg-[#090F22]">
           <img
             src="/src/assets/images/onboarding_sanctuary_1795241588374.jpg"

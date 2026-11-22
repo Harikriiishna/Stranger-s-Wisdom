@@ -11,6 +11,18 @@
   html {
     font-family: var(--font-sans);
     scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (max-width: 767px) {
+    html,
+    body,
+    #root {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
   }
 
   .font-wisdom {
@@ -21,6 +33,16 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* Native touch ergonomics */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Safe area support for Android / mobile web */
@@ -40,6 +62,36 @@
 }
 
 /* Additional curated sanctuary themes */
+html[data-theme='ocean-abyss'] {
+  --sw-canvas: #05111e;
+  --sw-chrome: rgba(7, 22, 38, 0.92);
+  --sw-surface: #091e32;
+  --sw-surface-elevated: #0e2944;
+  --sw-border: rgba(56, 189, 248, 0.22);
+  --sw-glow-1: rgba(56, 189, 248, 0.12);
+  --sw-glow-2: rgba(45, 212, 191, 0.08);
+}
+
+html[data-theme='nordic-slate'] {
+  --sw-canvas: #0b1218;
+  --sw-chrome: rgba(14, 23, 31, 0.92);
+  --sw-surface: #131e27;
+  --sw-surface-elevated: #1b2a36;
+  --sw-border: rgba(148, 163, 184, 0.24);
+  --sw-glow-1: rgba(103, 232, 249, 0.09);
+  --sw-glow-2: rgba(148, 163, 184, 0.08);
+}
+
+html[data-theme='obsidian-gold'] {
+  --sw-canvas: #050507;
+  --sw-chrome: rgba(12, 13, 17, 0.94);
+  --sw-surface: #111217;
+  --sw-surface-elevated: #191b22;
+  --sw-border: rgba(251, 191, 36, 0.2);
+  --sw-glow-1: rgba(251, 191, 36, 0.09);
+  --sw-glow-2: rgba(245, 158, 11, 0.06);
+}
+
 html[data-theme='amber-dusk'] {
   --sw-canvas: #120b12;
   --sw-chrome: rgba(23, 14, 24, 0.92);
@@ -70,6 +122,16 @@ html[data-theme='velvet-violet'] {
   --sw-glow-2: rgba(232, 121, 249, 0.08);
 }
 
+html[data-theme='rose-quartz'] {
+  --sw-canvas: #180c16;
+  --sw-chrome: rgba(31, 14, 28, 0.92);
+  --sw-surface: #251322;
+  --sw-surface-elevated: #331a2e;
+  --sw-border: rgba(251, 113, 133, 0.25);
+  --sw-glow-1: rgba(251, 113, 133, 0.11);
+  --sw-glow-2: rgba(192, 132, 252, 0.08);
+}
+
 html[data-theme='parchment'] {
   --sw-canvas: #fbf7f0;
   --sw-chrome: rgba(255, 251, 244, 0.94);
@@ -80,15 +142,52 @@ html[data-theme='parchment'] {
   --sw-glow-2: rgba(217, 119, 6, 0.07);
 }
 
+html[data-theme='sage-morning'] {
+  --sw-canvas: #f1f6f3;
+  --sw-chrome: rgba(247, 251, 249, 0.94);
+  --sw-surface: #fafdfb;
+  --sw-surface-elevated: #e8f1ec;
+  --sw-border: rgba(15, 118, 110, 0.2);
+  --sw-glow-1: rgba(15, 118, 110, 0.07);
+  --sw-glow-2: rgba(14, 165, 233, 0.05);
+}
+
+html[data-theme='terracotta-warm'] {
+  --sw-canvas: #faf4ee;
+  --sw-chrome: rgba(255, 250, 244, 0.94);
+  --sw-surface: #fffbf7;
+  --sw-surface-elevated: #f3e6da;
+  --sw-border: rgba(194, 65, 12, 0.2);
+  --sw-glow-1: rgba(234, 88, 12, 0.07);
+  --sw-glow-2: rgba(217, 119, 6, 0.06);
+}
+
+html[data-theme='ocean-abyss'] body,
+html[data-theme='nordic-slate'] body,
+html[data-theme='obsidian-gold'] body,
 html[data-theme='amber-dusk'] body,
 html[data-theme='forest-mist'] body,
 html[data-theme='velvet-violet'] body,
+html[data-theme='rose-quartz'] body,
+html[data-theme='ocean-abyss'] .dark\:bg-\[\#070B19\],
+html[data-theme='nordic-slate'] .dark\:bg-\[\#070B19\],
+html[data-theme='obsidian-gold'] .dark\:bg-\[\#070B19\],
 html[data-theme='amber-dusk'] .dark\:bg-\[\#070B19\],
 html[data-theme='forest-mist'] .dark\:bg-\[\#070B19\],
-html[data-theme='velvet-violet'] .dark\:bg-\[\#070B19\] {
+html[data-theme='velvet-violet'] .dark\:bg-\[\#070B19\],
+html[data-theme='rose-quartz'] .dark\:bg-\[\#070B19\] {
   background-color: var(--sw-canvas);
 }
 
+html[data-theme='ocean-abyss'] .dark\:bg-\[\#090F22\]\/90,
+html[data-theme='ocean-abyss'] .dark\:bg-\[\#090F22\]\/95,
+html[data-theme='ocean-abyss'] .dark\:bg-\[\#070B19\]\/90,
+html[data-theme='nordic-slate'] .dark\:bg-\[\#090F22\]\/90,
+html[data-theme='nordic-slate'] .dark\:bg-\[\#090F22\]\/95,
+html[data-theme='nordic-slate'] .dark\:bg-\[\#070B19\]\/90,
+html[data-theme='obsidian-gold'] .dark\:bg-\[\#090F22\]\/90,
+html[data-theme='obsidian-gold'] .dark\:bg-\[\#090F22\]\/95,
+html[data-theme='obsidian-gold'] .dark\:bg-\[\#070B19\]\/90,
 html[data-theme='amber-dusk'] .dark\:bg-\[\#090F22\]\/90,
 html[data-theme='amber-dusk'] .dark\:bg-\[\#090F22\]\/95,
 html[data-theme='amber-dusk'] .dark\:bg-\[\#070B19\]\/90,
@@ -97,19 +196,39 @@ html[data-theme='forest-mist'] .dark\:bg-\[\#090F22\]\/95,
 html[data-theme='forest-mist'] .dark\:bg-\[\#070B19\]\/90,
 html[data-theme='velvet-violet'] .dark\:bg-\[\#090F22\]\/90,
 html[data-theme='velvet-violet'] .dark\:bg-\[\#090F22\]\/95,
-html[data-theme='velvet-violet'] .dark\:bg-\[\#070B19\]\/90 {
+html[data-theme='velvet-violet'] .dark\:bg-\[\#070B19\]\/90,
+html[data-theme='rose-quartz'] .dark\:bg-\[\#090F22\]\/90,
+html[data-theme='rose-quartz'] .dark\:bg-\[\#090F22\]\/95,
+html[data-theme='rose-quartz'] .dark\:bg-\[\#070B19\]\/90 {
   background-color: var(--sw-chrome);
 }
 
+html[data-theme='ocean-abyss'] .dark\:bg-\[\#0D1326\],
+html[data-theme='ocean-abyss'] .dark\:bg-\[\#0A0F20\],
+html[data-theme='nordic-slate'] .dark\:bg-\[\#0D1326\],
+html[data-theme='nordic-slate'] .dark\:bg-\[\#0A0F20\],
+html[data-theme='obsidian-gold'] .dark\:bg-\[\#0D1326\],
+html[data-theme='obsidian-gold'] .dark\:bg-\[\#0A0F20\],
 html[data-theme='amber-dusk'] .dark\:bg-\[\#0D1326\],
 html[data-theme='amber-dusk'] .dark\:bg-\[\#0A0F20\],
 html[data-theme='forest-mist'] .dark\:bg-\[\#0D1326\],
 html[data-theme='forest-mist'] .dark\:bg-\[\#0A0F20\],
 html[data-theme='velvet-violet'] .dark\:bg-\[\#0D1326\],
-html[data-theme='velvet-violet'] .dark\:bg-\[\#0A0F20\] {
+html[data-theme='velvet-violet'] .dark\:bg-\[\#0A0F20\],
+html[data-theme='rose-quartz'] .dark\:bg-\[\#0D1326\],
+html[data-theme='rose-quartz'] .dark\:bg-\[\#0A0F20\] {
   background-color: var(--sw-surface);
 }
 
+html[data-theme='ocean-abyss'] .dark\:bg-\[\#111936\],
+html[data-theme='ocean-abyss'] .dark\:from-\[\#0E1630\],
+html[data-theme='ocean-abyss'] .dark\:from-\[\#101836\],
+html[data-theme='nordic-slate'] .dark\:bg-\[\#111936\],
+html[data-theme='nordic-slate'] .dark\:from-\[\#0E1630\],
+html[data-theme='nordic-slate'] .dark\:from-\[\#101836\],
+html[data-theme='obsidian-gold'] .dark\:bg-\[\#111936\],
+html[data-theme='obsidian-gold'] .dark\:from-\[\#0E1630\],
+html[data-theme='obsidian-gold'] .dark\:from-\[\#101836\],
 html[data-theme='amber-dusk'] .dark\:bg-\[\#111936\],
 html[data-theme='amber-dusk'] .dark\:from-\[\#0E1630\],
 html[data-theme='amber-dusk'] .dark\:from-\[\#101836\],
@@ -118,11 +237,29 @@ html[data-theme='forest-mist'] .dark\:from-\[\#0E1630\],
 html[data-theme='forest-mist'] .dark\:from-\[\#101836\],
 html[data-theme='velvet-violet'] .dark\:bg-\[\#111936\],
 html[data-theme='velvet-violet'] .dark\:from-\[\#0E1630\],
-html[data-theme='velvet-violet'] .dark\:from-\[\#101836\] {
+html[data-theme='velvet-violet'] .dark\:from-\[\#101836\],
+html[data-theme='rose-quartz'] .dark\:bg-\[\#111936\],
+html[data-theme='rose-quartz'] .dark\:from-\[\#0E1630\],
+html[data-theme='rose-quartz'] .dark\:from-\[\#101836\] {
   background-color: var(--sw-surface-elevated);
   background-image: none;
 }
 
+html[data-theme='ocean-abyss'] .dark\:border-indigo-950,
+html[data-theme='ocean-abyss'] .dark\:border-indigo-950\/80,
+html[data-theme='ocean-abyss'] .dark\:border-indigo-950\/70,
+html[data-theme='ocean-abyss'] .dark\:border-indigo-950\/90,
+html[data-theme='ocean-abyss'] .dark\:border-indigo-900,
+html[data-theme='nordic-slate'] .dark\:border-indigo-950,
+html[data-theme='nordic-slate'] .dark\:border-indigo-950\/80,
+html[data-theme='nordic-slate'] .dark\:border-indigo-950\/70,
+html[data-theme='nordic-slate'] .dark\:border-indigo-950\/90,
+html[data-theme='nordic-slate'] .dark\:border-indigo-900,
+html[data-theme='obsidian-gold'] .dark\:border-indigo-950,
+html[data-theme='obsidian-gold'] .dark\:border-indigo-950\/80,
+html[data-theme='obsidian-gold'] .dark\:border-indigo-950\/70,
+html[data-theme='obsidian-gold'] .dark\:border-indigo-950\/90,
+html[data-theme='obsidian-gold'] .dark\:border-indigo-900,
 html[data-theme='amber-dusk'] .dark\:border-indigo-950,
 html[data-theme='amber-dusk'] .dark\:border-indigo-950\/80,
 html[data-theme='amber-dusk'] .dark\:border-indigo-950\/70,
@@ -137,38 +274,183 @@ html[data-theme='velvet-violet'] .dark\:border-indigo-950,
 html[data-theme='velvet-violet'] .dark\:border-indigo-950\/80,
 html[data-theme='velvet-violet'] .dark\:border-indigo-950\/70,
 html[data-theme='velvet-violet'] .dark\:border-indigo-950\/90,
-html[data-theme='velvet-violet'] .dark\:border-indigo-900 {
+html[data-theme='velvet-violet'] .dark\:border-indigo-900,
+html[data-theme='rose-quartz'] .dark\:border-indigo-950,
+html[data-theme='rose-quartz'] .dark\:border-indigo-950\/80,
+html[data-theme='rose-quartz'] .dark\:border-indigo-950\/70,
+html[data-theme='rose-quartz'] .dark\:border-indigo-950\/90,
+html[data-theme='rose-quartz'] .dark\:border-indigo-900 {
   border-color: var(--sw-border);
 }
 
 html[data-theme='parchment'] body,
-html[data-theme='parchment'] .bg-slate-50 {
+html[data-theme='parchment'] .bg-slate-50,
+html[data-theme='sage-morning'] body,
+html[data-theme='sage-morning'] .bg-slate-50,
+html[data-theme='terracotta-warm'] body,
+html[data-theme='terracotta-warm'] .bg-slate-50 {
   background-color: var(--sw-canvas);
 }
 
-html[data-theme='parchment'] .bg-white {
+html[data-theme='parchment'] .bg-white,
+html[data-theme='sage-morning'] .bg-white,
+html[data-theme='terracotta-warm'] .bg-white {
   background-color: var(--sw-surface);
 }
 
 html[data-theme='parchment'] .bg-white\/85,
 html[data-theme='parchment'] .bg-white\/90,
-html[data-theme='parchment'] .bg-white\/95 {
+html[data-theme='parchment'] .bg-white\/95,
+html[data-theme='sage-morning'] .bg-white\/85,
+html[data-theme='sage-morning'] .bg-white\/90,
+html[data-theme='sage-morning'] .bg-white\/95,
+html[data-theme='terracotta-warm'] .bg-white\/85,
+html[data-theme='terracotta-warm'] .bg-white\/90,
+html[data-theme='terracotta-warm'] .bg-white\/95 {
   background-color: var(--sw-chrome);
 }
 
 html[data-theme='parchment'] .border-slate-200,
 html[data-theme='parchment'] .border-slate-200\/80,
-html[data-theme='parchment'] .border-slate-200\/90 {
+html[data-theme='parchment'] .border-slate-200\/90,
+html[data-theme='sage-morning'] .border-slate-200,
+html[data-theme='sage-morning'] .border-slate-200\/80,
+html[data-theme='sage-morning'] .border-slate-200\/90,
+html[data-theme='terracotta-warm'] .border-slate-200,
+html[data-theme='terracotta-warm'] .border-slate-200\/80,
+html[data-theme='terracotta-warm'] .border-slate-200\/90 {
   border-color: var(--sw-border);
 }
 
+html[data-theme='ocean-abyss'] .sanctuary-glow,
+html[data-theme='nordic-slate'] .sanctuary-glow,
+html[data-theme='obsidian-gold'] .sanctuary-glow,
 html[data-theme='amber-dusk'] .sanctuary-glow,
 html[data-theme='forest-mist'] .sanctuary-glow,
 html[data-theme='velvet-violet'] .sanctuary-glow,
-html[data-theme='parchment'] .sanctuary-glow {
+html[data-theme='rose-quartz'] .sanctuary-glow,
+html[data-theme='parchment'] .sanctuary-glow,
+html[data-theme='sage-morning'] .sanctuary-glow,
+html[data-theme='terracotta-warm'] .sanctuary-glow {
   background-image:
     radial-gradient(60% 45% at 50% 0%, var(--sw-glow-1) 0%, transparent 70%),
     radial-gradient(40% 35% at 85% 15%, var(--sw-glow-2) 0%, transparent 65%);
+}
+
+/* Liquid Glass theme (Dark): luminous oceanic aurora canvas + frosted translucent surfaces */
+html[data-theme='liquid-glass'] body,
+html[data-theme='liquid-glass'] .sanctuary-shell,
+html[data-theme='liquid-glass'] .min-h-screen.dark\:bg-\[\#070B19\] {
+  background-color: #061326;
+  background-image:
+    radial-gradient(58% 44% at 15% 10%, rgba(34, 211, 238, 0.24) 0%, transparent 70%),
+    radial-gradient(50% 42% at 88% 18%, rgba(167, 139, 250, 0.22) 0%, transparent 68%),
+    radial-gradient(52% 45% at 55% 88%, rgba(45, 212, 191, 0.18) 0%, transparent 72%),
+    linear-gradient(145deg, #051124 0%, #091c38 45%, #11183c 78%, #061829 100%);
+  background-attachment: fixed;
+}
+
+@media (max-width: 767px) {
+  html[data-theme='liquid-glass'] body,
+  html[data-theme='liquid-glass'] .sanctuary-shell,
+  html[data-theme='liquid-glass'] .min-h-screen.dark\:bg-\[\#070B19\],
+  html[data-theme='frost-glass'] body,
+  html[data-theme='frost-glass'] .sanctuary-shell,
+  html[data-theme='frost-glass'] .min-h-screen.bg-slate-50 {
+    background-attachment: scroll;
+  }
+}
+
+html[data-theme='liquid-glass'] .sanctuary-glow {
+  background-image:
+    radial-gradient(62% 48% at 50% 0%, rgba(103, 232, 249, 0.16) 0%, transparent 72%),
+    radial-gradient(42% 38% at 85% 18%, rgba(196, 181, 253, 0.14) 0%, transparent 66%);
+}
+
+html[data-theme='liquid-glass'] .dark\:bg-\[\#090F22\]\/90,
+html[data-theme='liquid-glass'] .dark\:bg-\[\#090F22\]\/95,
+html[data-theme='liquid-glass'] .dark\:bg-\[\#070B19\]\/90 {
+  background-color: rgba(11, 25, 52, 0.58);
+  backdrop-filter: blur(26px) saturate(185%);
+  -webkit-backdrop-filter: blur(26px) saturate(185%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme='liquid-glass'] .dark\:bg-\[\#0D1326\],
+html[data-theme='liquid-glass'] .dark\:bg-\[\#0A0F20\] {
+  background-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 12px 34px rgba(2, 8, 24, 0.34);
+}
+
+html[data-theme='liquid-glass'] .dark\:bg-\[\#111936\],
+html[data-theme='liquid-glass'] .dark\:from-\[\#0E1630\],
+html[data-theme='liquid-glass'] .dark\:from-\[\#101836\] {
+  background-color: rgba(17, 34, 68, 0.76);
+  background-image: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.13) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 16px 40px rgba(2, 8, 24, 0.44);
+}
+
+html[data-theme='liquid-glass'] .dark\:bg-\[\#070B19\]:not(.min-h-screen):not(.sanctuary-shell) {
+  background-color: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+
+html[data-theme='liquid-glass'] .dark\:border-indigo-950,
+html[data-theme='liquid-glass'] .dark\:border-indigo-950\/80,
+html[data-theme='liquid-glass'] .dark\:border-indigo-950\/70,
+html[data-theme='liquid-glass'] .dark\:border-indigo-950\/90,
+html[data-theme='liquid-glass'] .dark\:border-indigo-900,
+html[data-theme='liquid-glass'] .dark\:border-indigo-800 {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Frosted Glass theme (Light Liquid Glass): prism pastel mesh + crisp frosted glass */
+html[data-theme='frost-glass'] body,
+html[data-theme='frost-glass'] .sanctuary-shell,
+html[data-theme='frost-glass'] .min-h-screen.bg-slate-50 {
+  background-color: #eaf3fb;
+  background-image:
+    radial-gradient(55% 45% at 15% 12%, rgba(56, 189, 248, 0.22) 0%, transparent 70%),
+    radial-gradient(50% 42% at 88% 15%, rgba(167, 139, 250, 0.18) 0%, transparent 68%),
+    radial-gradient(55% 45% at 50% 90%, rgba(45, 212, 191, 0.16) 0%, transparent 72%),
+    linear-gradient(145deg, #e8f3fb 0%, #f1f5fe 50%, #e9f8f5 100%);
+  background-attachment: fixed;
+}
+
+html[data-theme='frost-glass'] .bg-white {
+  background-color: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(22px) saturate(175%);
+  -webkit-backdrop-filter: blur(22px) saturate(175%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme='frost-glass'] .bg-white\/85,
+html[data-theme='frost-glass'] .bg-white\/90,
+html[data-theme='frost-glass'] .bg-white\/95 {
+  background-color: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(26px) saturate(185%);
+  -webkit-backdrop-filter: blur(26px) saturate(185%);
+}
+
+html[data-theme='frost-glass'] .border-slate-200,
+html[data-theme='frost-glass'] .border-slate-200\/80,
+html[data-theme='frost-glass'] .border-slate-200\/90 {
+  border-color: rgba(255, 255, 255, 0.72);
 }
 
 @media (prefers-reduced-motion: reduce) {

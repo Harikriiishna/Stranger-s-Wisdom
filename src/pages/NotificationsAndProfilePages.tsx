@@ -15,8 +15,10 @@ import {
   ShieldAlert,
   Trash2,
   User,
+  HardDriveDownload,
 } from 'lucide-react';
 import { Layout } from '../components/Layout';
+import { PWAInstallButton } from '../components/PWAStatus';
 import {
   CrisisSupportBanner,
   EmptyState,
@@ -32,6 +34,7 @@ import {
   profileApi,
 } from '../lib/api';
 import { formatTimeAgo, REPORT_REASONS } from '../lib/format';
+import { clearAllOfflineCache, getOfflineCacheStats } from '../lib/offlineCache';
 import { THEME_OPTIONS } from '../lib/themes';
 
 export function NotificationsPage() {
@@ -431,7 +434,7 @@ export function ProfilePage() {
 }
 
 export function SettingsPage() {
-  const { profile, theme, setTheme, logout, updateLocalProfile } = useAuth();
+  const { profile, loading: authLoading, theme, setTheme, logout, updateLocalProfile } = useAuth();
   const navigate = useNavigate();
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -442,6 +445,16 @@ export function SettingsPage() {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [cacheStats, setCacheStats] = useState<{
+    cachedQuestionsCount: number;
+    savedItemsCount: number;
+    lastSyncedAt: number | null;
+  } | null>(null);
+
+  React.useEffect(() => {
+    if (authLoading) return;
+    void getOfflineCacheStats().then(setCacheStats);
+  }, [profile, authLoading]);
 
   const toggleNotif = async (key: 'answers' | 'oneVoice' | 'savedQuestions' | 'drafts') => {
     if (!profile) return;
@@ -542,7 +555,11 @@ export function SettingsPage() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       aria-hidden="true"
-                      className="flex h-9 w-9 shrink-0 overflow-hidden rounded-xl border border-slate-300/60 dark:border-white/15"
+                      className={`relative flex h-9 w-9 shrink-0 overflow-hidden rounded-xl border ${
+                        item.id === 'liquid-glass' || item.id === 'frost-glass'
+                          ? 'border-cyan-300/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]'
+                          : 'border-slate-300/60 dark:border-white/15'
+                      }`}
                     >
                       <span
                         className="w-1/2 h-full"
@@ -557,6 +574,11 @@ export function SettingsPage() {
                           style={{ backgroundColor: item.swatches[2] }}
                         />
                       </span>
+                      {(item.id === 'liquid-glass' || item.id === 'frost-glass') && (
+                        <span
+                          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/35 via-white/10 to-transparent"
+                        />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold truncate">{item.label}</p>
@@ -571,6 +593,53 @@ export function SettingsPage() {
                 </button>
               );
             })}
+          </div>
+        </section>
+
+        {/* Offline Storage & App */}
+        <section className="rounded-3xl border border-slate-200 dark:border-indigo-950 bg-white dark:bg-[#0D1326] p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <HardDriveDownload className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                Offline Reading &amp; App
+              </h2>
+            </div>
+            <PWAInstallButton variant="settings" />
+          </div>
+          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+            Previously viewed questions and your saved wisdom are stored locally on this device so you can keep reading when offline.
+          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 dark:border-indigo-950/70 bg-slate-50 dark:bg-[#070B19] px-4 py-3">
+            <div className="text-xs text-slate-700 dark:text-slate-300 space-y-0.5">
+              <p className="font-tabular font-medium">
+                {cacheStats
+                  ? `${cacheStats.cachedQuestionsCount} cached ${
+                      cacheStats.cachedQuestionsCount === 1 ? 'question' : 'questions'
+                    } · ${cacheStats.savedItemsCount} saved ${
+                      cacheStats.savedItemsCount === 1 ? 'item' : 'items'
+                    }`
+                  : 'Checking local cache...'}
+              </p>
+              {cacheStats?.lastSyncedAt && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Last updated {formatTimeAgo(new Date(cacheStats.lastSyncedAt).toISOString())}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                setSettingsError(null);
+                setSettingsMsg(null);
+                await clearAllOfflineCache();
+                setCacheStats(await getOfflineCacheStats());
+                setSettingsMsg('Local offline reading cache cleared.');
+              }}
+              className="min-h-[38px] rounded-xl border border-slate-300 dark:border-indigo-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-indigo-950/50 cursor-pointer"
+            >
+              Clear Offline Cache
+            </button>
           </div>
         </section>
 

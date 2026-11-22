@@ -16,10 +16,18 @@ export type ThemeMode =
   | 'dark'
   | 'light'
   | 'system'
+  | 'liquid-glass'
+  | 'frost-glass'
+  | 'ocean-abyss'
+  | 'nordic-slate'
+  | 'obsidian-gold'
   | 'amber-dusk'
   | 'forest-mist'
   | 'velvet-violet'
-  | 'parchment';
+  | 'rose-quartz'
+  | 'parchment'
+  | 'sage-morning'
+  | 'terracotta-warm';
 
 export interface UserProfile {
   id: string;

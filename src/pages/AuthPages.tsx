@@ -16,8 +16,8 @@ function AuthShell({
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070B19] text-slate-900 dark:text-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 sanctuary-glow">
-      <div className="w-full max-w-md space-y-6">
+    <div className="h-[100dvh] overflow-y-auto overscroll-y-contain md:h-auto md:min-h-screen bg-slate-50 dark:bg-[#070B19] text-slate-900 dark:text-slate-100 flex flex-col items-center p-4 sm:p-6 sanctuary-glow">
+      <div className="my-auto w-full max-w-md space-y-6 py-2">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -141,7 +141,7 @@ export function SignUpPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder="Enter your email address"
               className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-indigo-900 bg-slate-50 dark:bg-[#070B19] pl-10 pr-4 text-sm focus:border-cyan-500 focus:outline-none"
             />
           </div>
@@ -183,7 +183,7 @@ export function SignUpPage() {
             type="text"
             value={alias}
             onChange={(e) => setAlias(e.target.value)}
-            placeholder="e.g. Quiet Listener"
+            placeholder="Choose a private alias"
             className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-indigo-900 bg-slate-50 dark:bg-[#070B19] px-3.5 text-sm focus:border-cyan-500 focus:outline-none"
           />
         </div>
@@ -306,7 +306,7 @@ export function SignInPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder="Enter your email address"
               className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-indigo-900 bg-slate-50 dark:bg-[#070B19] pl-10 pr-4 text-sm focus:border-cyan-500 focus:outline-none"
             />
           </div>
@@ -487,7 +487,7 @@ export function ForgotPasswordPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder="Enter your email address"
               className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-indigo-900 bg-slate-50 dark:bg-[#070B19] px-3.5 text-sm focus:border-cyan-500 focus:outline-none"
             />
           </div>

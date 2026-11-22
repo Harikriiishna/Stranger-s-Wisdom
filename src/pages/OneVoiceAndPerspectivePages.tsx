@@ -5,18 +5,18 @@ import {
   ArrowRight,
   Bookmark,
   CheckCircle2,
-  Heart,
   Lightbulb,
   Radio,
   RefreshCw,
 } from 'lucide-react';
+import { AnswerReactionsBar } from '../components/AnswerCard';
 import { CardContextMenu } from '../components/CardContextMenu';
 import { Layout } from '../components/Layout';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { answersApi, myWisdomApi } from '../lib/api';
 import { getAnswerShareUrl } from '../lib/clipboard';
-import { formatStatusLabel, formatTimeAgo, REACTION_TYPES } from '../lib/format';
+import { formatStatusLabel, formatTimeAgo } from '../lib/format';
 
 export function OneVoicePage() {
   const { profile } = useAuth();
@@ -279,6 +279,8 @@ export function PerspectivePage() {
               <CardContextMenu
                 triggerLabel="Perspective options"
                 shareUrl={getAnswerShareUrl(perspective.questionId, perspective.id)}
+                shareTitle={perspective.questionTitle}
+                shareText={perspective.body}
               />
             </div>
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
@@ -303,26 +305,13 @@ export function PerspectivePage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {REACTION_TYPES.slice(0, 3).map((rx) => {
-                const active = perspective.userReactions.includes(rx.id);
-                return (
-                  <button
-                    key={rx.id}
-                    type="button"
-                    onClick={() => handleReact(rx.id)}
-                    className={`min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium cursor-pointer ${
-                      active
-                        ? 'border-teal-500 bg-teal-500/15 text-teal-700 dark:text-teal-300'
-                        : 'border-slate-200 dark:border-indigo-900 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    <Heart className="h-3.5 w-3.5" fill={active ? 'currentColor' : 'none'} />
-                    {rx.label}
-                  </button>
-                );
-              })}
-            </div>
+            <AnswerReactionsBar
+              answerId={perspective.id}
+              reactionCounts={perspective.reactionCounts}
+              userReactions={perspective.userReactions}
+              align="center"
+              onReact={(_id, rxId) => handleReact(rxId)}
+            />
 
             {actionError && (
               <p className="text-center text-xs text-rose-500" role="alert">

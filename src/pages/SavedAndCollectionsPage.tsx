@@ -379,6 +379,8 @@ export function SavedAndCollectionsPage({
                             <CardContextMenu
                               triggerLabel="Answer options"
                               shareUrl={getAnswerShareUrl(item.questionId, item.answerId)}
+                              shareTitle={item.questionTitle}
+                              shareText={item.body}
                               items={[
                                 {
                                   label: 'View thread',
@@ -486,6 +488,8 @@ export function SavedAndCollectionsPage({
                           <CardContextMenu
                             triggerLabel="Question options"
                             shareUrl={getQuestionShareUrl(sq.questionId)}
+                            shareTitle={sq.title}
+                            shareText={`${sq.category} · Saved question on Stranger's Wisdom`}
                             items={[
                               {
                                 label: 'Open thread',
@@ -546,7 +550,7 @@ export function SavedAndCollectionsPage({
                   required
                   value={colName}
                   onChange={(e) => setColName(e.target.value)}
-                  placeholder="e.g. Things I Needed to Hear"
+                  placeholder="Collection name"
                   className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-indigo-900 bg-slate-50 dark:bg-[#070B19] px-3.5 text-sm"
                 />
               </div>

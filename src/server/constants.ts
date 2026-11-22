@@ -32,10 +32,13 @@ export const ANSWER_TYPES = [
 ] as const;
 
 export const REACTION_TYPES = [
-  { id: 'this_helped', label: 'This Helped Me' },
+  { id: 'insightful', label: 'Insightful' },
+  { id: 'empathetic', label: 'Empathetic' },
+  { id: 'thought_provoking', label: 'Thought-provoking' },
+  { id: 'this_helped', label: 'This Helped' },
+  { id: 'thank_you', label: 'Thank You' },
   { id: 'i_understand', label: 'I Understand' },
   { id: 'i_needed_this', label: 'I Needed This' },
-  { id: 'thank_you', label: 'Thank You' },
   { id: 'different_perspective', label: 'Different Perspective' },
 ] as const;
 
