@@ -18,6 +18,7 @@ import {
 } from '../lib/format';
 import type { AnswerItem, CollectionItem } from '../types';
 import { CardContextMenu, type ContextMenuItem } from './CardContextMenu';
+import { ShareButton } from './ShareButton';
 
 export function AnswerReactionsBar({
   answerId,
@@ -409,13 +410,27 @@ export function AnswerCard({
         </div>
       )}
 
-      {!focusMode && onReact && (
-        <div className="mt-5 pt-4 border-t border-slate-100 dark:border-indigo-950/60">
-          <AnswerReactionsBar
-            answerId={answer.id}
-            reactionCounts={answer.reactionCounts}
-            userReactions={answer.userReactions}
-            onReact={onReact}
+      {!focusMode && (
+        <div
+          className={`mt-5 pt-4 border-t border-slate-100 dark:border-indigo-950/60 flex flex-wrap items-center gap-3 ${
+            onReact ? 'justify-between' : 'justify-end'
+          }`}
+        >
+          {onReact && (
+            <div className="min-w-0 flex-1">
+              <AnswerReactionsBar
+                answerId={answer.id}
+                reactionCounts={answer.reactionCounts}
+                userReactions={answer.userReactions}
+                onReact={onReact}
+              />
+            </div>
+          )}
+          <ShareButton
+            title={answer.questionTitle || "Thoughtful perspective on Stranger's Wisdom"}
+            text={answer.body}
+            url={getAnswerShareUrl(answer.questionId, answer.id)}
+            variant="outline"
           />
         </div>
       )}

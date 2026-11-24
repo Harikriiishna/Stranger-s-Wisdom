@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { LayoutGroup, motion } from 'motion/react';
 import { Bookmark, ExternalLink, FolderPlus, Plus, Search, Trash2, X } from 'lucide-react';
 import { CardContextMenu } from '../components/CardContextMenu';
 import { Layout } from '../components/Layout';
+import { ShareButton } from '../components/ShareButton';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { answersApi, questionsApi, savedApi } from '../lib/api';
@@ -137,32 +139,62 @@ export function SavedAndCollectionsPage({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setView('saved');
-                setSelectedCollectionId(null);
-              }}
-              className={`min-h-[42px] rounded-xl px-4 py-2 text-xs font-semibold cursor-pointer ${
-                view === 'saved'
-                  ? 'bg-cyan-600 dark:bg-cyan-500 text-white dark:text-slate-950'
-                  : 'border border-slate-200 dark:border-indigo-900 text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              Saved Items
-            </button>
-            <button
-              type="button"
-              onClick={() => setView('collections')}
-              className={`min-h-[42px] rounded-xl px-4 py-2 text-xs font-semibold cursor-pointer ${
-                view === 'collections'
-                  ? 'bg-cyan-600 dark:bg-cyan-500 text-white dark:text-slate-950'
-                  : 'border border-slate-200 dark:border-indigo-900 text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              Collections
-            </button>
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-indigo-950/80 sm:border-b-0">
+            <LayoutGroup id="saved-view-tabs">
+              <div
+                role="tablist"
+                aria-label="Saved library views"
+                className="flex items-center gap-1 sm:border-b sm:border-slate-200/80 sm:dark:border-indigo-950/80"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === 'saved'}
+                  onClick={() => {
+                    setView('saved');
+                    setSelectedCollectionId(null);
+                  }}
+                  className={`relative min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    view === 'saved'
+                      ? 'text-cyan-700 dark:text-cyan-300'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <span>Saved Items</span>
+                  {view === 'saved' && (
+                    <motion.span
+                      layoutId="saved-view-bottom-bar"
+                      data-bottom-bar="active"
+                      aria-hidden="true"
+                      transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+                      className="sw-bottom-bar pointer-events-none absolute bottom-0 left-2 right-2 h-[2.5px] rounded-full bg-cyan-600 dark:bg-cyan-400"
+                    />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === 'collections'}
+                  onClick={() => setView('collections')}
+                  className={`relative min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    view === 'collections'
+                      ? 'text-cyan-700 dark:text-cyan-300'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <span>Collections</span>
+                  {view === 'collections' && (
+                    <motion.span
+                      layoutId="saved-view-bottom-bar"
+                      data-bottom-bar="active"
+                      aria-hidden="true"
+                      transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+                      className="sw-bottom-bar pointer-events-none absolute bottom-0 left-2 right-2 h-[2.5px] rounded-full bg-cyan-600 dark:bg-cyan-400"
+                    />
+                  )}
+                </button>
+              </div>
+            </LayoutGroup>
             <button
               type="button"
               onClick={() => {
@@ -170,7 +202,7 @@ export function SavedAndCollectionsPage({
                 setShowNewColModal(true);
               }}
               aria-label="Create collection"
-              className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-indigo-800 px-3.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/60 cursor-pointer"
+              className="min-h-[40px] mb-1 inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-indigo-800 px-3.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/60 cursor-pointer shrink-0"
             >
               <Plus className="h-4 w-4" />
               New
@@ -356,6 +388,12 @@ export function SavedAndCollectionsPage({
                             </span>
                           </div>
                           <div className="flex items-center gap-0.5 shrink-0">
+                            <ShareButton
+                              title={item.questionTitle}
+                              text={item.body}
+                              url={getAnswerShareUrl(item.questionId, item.answerId)}
+                              variant="subtle"
+                            />
                             <button
                               type="button"
                               onClick={async () => {
@@ -462,6 +500,12 @@ export function SavedAndCollectionsPage({
                           </h3>
                         </Link>
                         <div className="flex items-center gap-0.5 shrink-0">
+                          <ShareButton
+                            title={sq.title}
+                            text={`${sq.category} · Saved question on Stranger's Wisdom`}
+                            url={getQuestionShareUrl(sq.questionId)}
+                            variant="subtle"
+                          />
                           <button
                             type="button"
                             onClick={async () => {

@@ -21,7 +21,10 @@ function AuthShell({
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+              else navigate('/home');
+            }}
             className="min-h-[44px] inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />

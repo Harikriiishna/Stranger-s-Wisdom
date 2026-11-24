@@ -12,6 +12,7 @@ import {
 import { AnswerReactionsBar } from '../components/AnswerCard';
 import { CardContextMenu } from '../components/CardContextMenu';
 import { Layout } from '../components/Layout';
+import { ShareButton } from '../components/ShareButton';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { answersApi, myWisdomApi } from '../lib/api';
@@ -331,6 +332,14 @@ export function PerspectivePage() {
                 />
                 {perspective.isSaved ? 'Saved' : 'Save'}
               </button>
+
+              <ShareButton
+                title={perspective.questionTitle}
+                text={perspective.body}
+                url={getAnswerShareUrl(perspective.questionId, perspective.id)}
+                variant="outline"
+                className="min-h-[44px] px-4 py-2 text-sm"
+              />
 
               <Link
                 to={`/questions/${perspective.questionId}#answer-${perspective.id}`}

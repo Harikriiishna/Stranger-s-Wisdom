@@ -97,6 +97,7 @@ export default defineConfig(() => {
             {
               urlPattern: ({url, request}) =>
                 url.origin === self.location.origin &&
+                url.pathname.startsWith('/assets/') &&
                 (request.destination === 'script' || request.destination === 'style'),
               handler: 'NetworkFirst',
               options: {
@@ -134,10 +135,7 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
-          type: 'module',
-          navigateFallback: 'index.html',
-          navigateFallbackAllowlist: [/^\/(?!api\/|ws)/],
+          enabled: false,
         },
       }),
       // Copies src/assets into dist/ so root-relative URLs like
@@ -164,6 +162,25 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(import.meta.dirname, '.'),
       },
+      dedupe: [
+        'react',
+        'react-dom',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+      ],
+    },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-dom/client',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        'react-router-dom',
+        '@tanstack/react-query',
+        'lucide-react',
+        'motion/react',
+      ],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

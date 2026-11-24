@@ -6,6 +6,7 @@ import { AnswerReactionsBar } from '../components/AnswerCard';
 import { CardContextMenu } from '../components/CardContextMenu';
 import { Layout } from '../components/Layout';
 import { QuestionCard } from '../components/QuestionCard';
+import { ShareButton } from '../components/ShareButton';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/StateViews';
 import { useAuth } from '../contexts/AuthContext';
 import { answersApi, questionsApi } from '../lib/api';
@@ -114,7 +115,7 @@ export function HomePage() {
           </div>
         )}
         {/* Hero Greeting */}
-        <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-indigo-950/90 bg-gradient-to-br from-white via-slate-50 to-cyan-50/40 dark:from-[#0E1630] dark:via-[#0B1124] dark:to-[#11183A] p-6 sm:p-10">
+        <section className="sw-hero-surface relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-indigo-950/90 bg-gradient-to-br from-white via-slate-50 to-cyan-50/40 dark:from-[#0E1630] dark:via-[#0B1124] dark:to-[#11183A] p-6 sm:p-10">
           <div className="max-w-2xl space-y-4">
             <p className="text-sm font-medium text-cyan-700 dark:text-cyan-400">
               {getGreeting()}
@@ -130,7 +131,7 @@ export function HomePage() {
               <button
                 type="button"
                 onClick={() => navigate('/ask')}
-                className="min-h-[46px] inline-flex items-center gap-2 rounded-xl bg-cyan-600 dark:bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-white dark:text-slate-950 hover:bg-cyan-500 dark:hover:bg-cyan-400 transition-colors cursor-pointer whitespace-nowrap"
+                className="sw-btn-primary min-h-[46px] inline-flex items-center gap-2 rounded-xl bg-cyan-600 dark:bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-white dark:text-slate-950 hover:bg-cyan-500 dark:hover:bg-cyan-400 transition-all cursor-pointer whitespace-nowrap"
               >
                 <Feather className="h-4 w-4" />
                 Ask Something
@@ -240,6 +241,12 @@ export function HomePage() {
                           On: {item.questionTitle}
                         </Link>
                         <div className="flex items-center gap-0.5 shrink-0">
+                          <ShareButton
+                            title={item.questionTitle}
+                            text={item.body}
+                            url={getAnswerShareUrl(item.questionId, item.id)}
+                            variant="subtle"
+                          />
                           <button
                             type="button"
                             onClick={() =>
@@ -330,7 +337,7 @@ export function HomePage() {
                 <h2 className="text-sm font-semibold tracking-wide text-slate-500 dark:text-slate-400">
                   A Different Perspective
                 </h2>
-                <div className="rounded-3xl border border-indigo-200/80 dark:border-indigo-900/80 bg-gradient-to-br from-indigo-50/60 via-white to-violet-50/40 dark:from-[#101836] dark:via-[#0D1326] dark:to-[#13112E] p-6 sm:p-8 space-y-4">
+                <div className="sw-perspective-surface rounded-3xl border border-indigo-200/80 dark:border-indigo-900/80 bg-gradient-to-br from-indigo-50/60 via-white to-violet-50/40 dark:from-[#101836] dark:via-[#0D1326] dark:to-[#13112E] p-6 sm:p-8 space-y-4">
                   <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                     <span className="font-semibold text-teal-700 dark:text-teal-300">
                       {data.differentPerspective.answerType} · {data.differentPerspective.questionCategory}
@@ -358,7 +365,7 @@ export function HomePage() {
                     >
                       Read original question →
                     </Link>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() =>
@@ -375,6 +382,15 @@ export function HomePage() {
                         />
                         {data.differentPerspective.isSaved ? 'Saved' : 'Save perspective'}
                       </button>
+                      <ShareButton
+                        title={data.differentPerspective.questionTitle}
+                        text={data.differentPerspective.body}
+                        url={getAnswerShareUrl(
+                          data.differentPerspective.questionId,
+                          data.differentPerspective.id
+                        )}
+                        variant="outline"
+                      />
                       <CardContextMenu
                         triggerLabel="Answer options"
                         shareUrl={getAnswerShareUrl(

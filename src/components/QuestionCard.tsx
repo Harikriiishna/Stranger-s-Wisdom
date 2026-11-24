@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bookmark, ExternalLink, MessageCircle } from 'lucide-react';
+import { Bookmark, ExternalLink, Flame, MessageCircle } from 'lucide-react';
 import { getQuestionShareUrl } from '../lib/clipboard';
 import { formatStatusLabel, formatTimeAgo } from '../lib/format';
 import type { QuestionCardItem } from '../types';
 import { CardContextMenu, type ContextMenuItem } from './CardContextMenu';
+import { ShareButton } from './ShareButton';
 
 export function QuestionCard({
   question,
@@ -51,6 +52,22 @@ export function QuestionCard({
           <span className="font-tabular">{formatTimeAgo(question.createdAt)}</span>
           <span aria-hidden="true">·</span>
           <span>{formatStatusLabel(question.status)}</span>
+          {question.isTrending && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span
+                data-trending="true"
+                title="Popular discussion with high engagement"
+                className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap"
+              >
+                <Flame
+                  className="h-3.5 w-3.5 shrink-0 fill-amber-500/25"
+                  aria-hidden="true"
+                />
+                <span>Trending</span>
+              </span>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0 -mt-2 -mr-2">
@@ -115,12 +132,20 @@ export function QuestionCard({
           )}
         </div>
 
-        <Link
-          to={`/questions/${question.id}`}
-          className="font-medium text-cyan-700 dark:text-cyan-400 hover:underline whitespace-nowrap"
-        >
-          {question.answerCount === 0 ? 'Share perspective' : 'Read thread'}
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <ShareButton
+            title={question.title}
+            text={question.body || `${question.category} · ${question.questionType}`}
+            url={getQuestionShareUrl(question.id)}
+            variant="subtle"
+          />
+          <Link
+            to={`/questions/${question.id}`}
+            className="min-h-[40px] inline-flex items-center font-medium text-cyan-700 dark:text-cyan-400 hover:underline whitespace-nowrap"
+          >
+            {question.answerCount === 0 ? 'Share perspective' : 'Read thread'}
+          </Link>
+        </div>
       </div>
     </article>
   );

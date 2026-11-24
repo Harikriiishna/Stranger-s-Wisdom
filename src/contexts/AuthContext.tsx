@@ -14,7 +14,7 @@ import type { ThemeMode, UserProfile } from '../types';
 const LOCAL_THEME_KEY = 'sw_theme';
 
 function getInitialTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') return 'social-pulse';
   try {
     const saved = window.localStorage.getItem(LOCAL_THEME_KEY);
     if (isValidThemeMode(saved)) {
@@ -24,8 +24,8 @@ function getInitialTheme(): ThemeMode {
   } catch {
     // Ignore storage errors
   }
-  applyThemeToDocument('dark');
-  return 'dark';
+  applyThemeToDocument('social-pulse');
+  return 'social-pulse';
 }
 
 interface AuthContextValue {

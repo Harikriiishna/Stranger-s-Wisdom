@@ -13,6 +13,10 @@ export interface PrivacySettings {
 }
 
 export type ThemeMode =
+  | 'social-pulse'
+  | 'social-daylight'
+  | 'social-aurora'
+  | 'social-sky'
   | 'dark'
   | 'light'
   | 'system'
@@ -61,6 +65,8 @@ export interface QuestionCardItem {
   isOwner: boolean;
   isSaved: boolean;
   authorLabel: string;
+  isTrending?: boolean;
+  engagementScore?: number;
 }
 
 export interface AnswerItem {

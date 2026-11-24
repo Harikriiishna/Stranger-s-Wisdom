@@ -6,6 +6,23 @@
     --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-serif: 'Source Serif 4', Georgia, Cambria, serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --sw-accent-gradient: linear-gradient(135deg, #0891b2 0%, #0284c7 100%);
+    --sw-accent-fg: #ffffff;
+    --sw-accent-text: #0e7490;
+    --sw-accent-soft: rgba(34, 211, 238, 0.14);
+    --sw-accent-border: rgba(6, 182, 212, 0.45);
+    --sw-accent-glow: rgba(34, 211, 238, 0.35);
+    --sw-secondary-text: #6d28d9;
+  }
+
+  .dark {
+    --sw-accent-gradient: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+    --sw-accent-fg: #020617;
+    --sw-accent-text: #22d3ee;
+    --sw-accent-soft: rgba(34, 211, 238, 0.14);
+    --sw-accent-border: rgba(34, 211, 238, 0.45);
+    --sw-accent-glow: rgba(34, 211, 238, 0.4);
+    --sw-secondary-text: #c4b5fd;
   }
 
   html {
@@ -59,6 +76,281 @@
   background-image:
     radial-gradient(60% 45% at 50% 0%, rgba(34, 211, 238, 0.08) 0%, transparent 70%),
     radial-gradient(40% 35% at 85% 15%, rgba(167, 139, 250, 0.07) 0%, transparent 65%);
+}
+
+/* ==========================================================================
+   SOCIAL MEDIA THEMES (Vibrant, Crisp, Expressive Colour System)
+   ========================================================================== */
+
+/* 1. Social Pulse (Default Flagship Social Dark Theme: Coral Rose + Electric Violet + Sky) */
+html[data-theme='social-pulse'] {
+  --sw-canvas: #090b14;
+  --sw-chrome: rgba(13, 16, 30, 0.86);
+  --sw-surface: #121628;
+  --sw-surface-elevated: #181e36;
+  --sw-surface-input: #0c1020;
+  --sw-border: rgba(255, 255, 255, 0.1);
+  --sw-divider: rgba(255, 255, 255, 0.07);
+  --sw-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 28px -8px rgba(4, 6, 16, 0.55);
+  --sw-glow-1: rgba(244, 63, 94, 0.16);
+  --sw-glow-2: rgba(56, 189, 248, 0.13);
+  --sw-glow-3: rgba(168, 85, 247, 0.11);
+  --sw-accent-gradient: linear-gradient(135deg, #e11d48 0%, #9333ea 100%);
+  --sw-accent-gradient-hover: linear-gradient(135deg, #f43f5e 0%, #a855f7 100%);
+  --sw-accent-fg: #ffffff;
+  --sw-accent-text: #ff6b93;
+  --sw-link-text: #38bdf8;
+  --sw-secondary-text: #c084fc;
+  --sw-accent-soft: rgba(244, 63, 94, 0.16);
+  --sw-accent-border: rgba(244, 63, 94, 0.55);
+  --sw-accent-glow: rgba(244, 63, 94, 0.42);
+  --sw-hero-gradient:
+    radial-gradient(65% 85% at 10% 10%, rgba(225, 29, 72, 0.22) 0%, transparent 65%),
+    radial-gradient(55% 75% at 92% 15%, rgba(56, 189, 248, 0.18) 0%, transparent 60%),
+    linear-gradient(135deg, #16142e 0%, #11152b 52%, #1b1129 100%);
+  --sw-perspective-gradient:
+    radial-gradient(65% 80% at 90% 10%, rgba(168, 85, 247, 0.18) 0%, transparent 65%),
+    linear-gradient(135deg, #16122c 0%, #12172c 55%, #121d33 100%);
+}
+
+/* 2. Social Daylight (Vibrant Bright Social Feed: Crisp Snow + Coral Rose + Royal Blue) */
+html[data-theme='social-daylight'] {
+  --sw-canvas: #f6f8fc;
+  --sw-chrome: rgba(255, 255, 255, 0.88);
+  --sw-surface: #ffffff;
+  --sw-surface-elevated: #f0f4ff;
+  --sw-surface-input: #f8fafd;
+  --sw-border: rgba(15, 23, 42, 0.09);
+  --sw-divider: rgba(15, 23, 42, 0.06);
+  --sw-card-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --sw-glow-1: rgba(244, 63, 94, 0.08);
+  --sw-glow-2: rgba(37, 99, 235, 0.08);
+  --sw-glow-3: rgba(168, 85, 247, 0.05);
+  --sw-accent-gradient: linear-gradient(135deg, #e11d48 0%, #2563eb 100%);
+  --sw-accent-gradient-hover: linear-gradient(135deg, #be123c 0%, #1d4ed8 100%);
+  --sw-accent-fg: #ffffff;
+  --sw-accent-text: #be123c;
+  --sw-link-text: #1d4ed8;
+  --sw-secondary-text: #6d28d9;
+  --sw-accent-soft: rgba(225, 29, 72, 0.1);
+  --sw-accent-border: rgba(225, 29, 72, 0.45);
+  --sw-accent-glow: rgba(225, 29, 72, 0.28);
+  --sw-hero-gradient:
+    radial-gradient(60% 80% at 8% 12%, rgba(244, 63, 94, 0.11) 0%, transparent 65%),
+    radial-gradient(55% 75% at 92% 15%, rgba(37, 99, 235, 0.11) 0%, transparent 65%),
+    linear-gradient(135deg, #ffffff 0%, #fff7f9 52%, #f3f7ff 100%);
+  --sw-perspective-gradient:
+    radial-gradient(60% 75% at 90% 10%, rgba(124, 58, 237, 0.09) 0%, transparent 65%),
+    linear-gradient(135deg, #ffffff 0%, #f8f5ff 55%, #f0f7ff 100%);
+}
+
+/* 3. Aurora Pop (Warm Sunset Berry: Magenta + Warm Tangerine Gold + Plum) */
+html[data-theme='social-aurora'] {
+  --sw-canvas: #13091f;
+  --sw-chrome: rgba(24, 11, 38, 0.88);
+  --sw-surface: #1d102e;
+  --sw-surface-elevated: #28163f;
+  --sw-surface-input: #140a21;
+  --sw-border: rgba(244, 114, 182, 0.2);
+  --sw-divider: rgba(244, 114, 182, 0.12);
+  --sw-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 10px 28px -8px rgba(10, 4, 20, 0.6);
+  --sw-glow-1: rgba(236, 72, 153, 0.18);
+  --sw-glow-2: rgba(245, 158, 11, 0.13);
+  --sw-glow-3: rgba(168, 85, 247, 0.14);
+  --sw-accent-gradient: linear-gradient(135deg, #db2777 0%, #ea580c 100%);
+  --sw-accent-gradient-hover: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+  --sw-accent-fg: #ffffff;
+  --sw-accent-text: #f9a8d4;
+  --sw-link-text: #fbbf24;
+  --sw-secondary-text: #f472b6;
+  --sw-accent-soft: rgba(236, 72, 153, 0.18);
+  --sw-accent-border: rgba(244, 114, 182, 0.55);
+  --sw-accent-glow: rgba(236, 72, 153, 0.44);
+  --sw-hero-gradient:
+    radial-gradient(65% 85% at 10% 10%, rgba(236, 72, 153, 0.22) 0%, transparent 65%),
+    radial-gradient(55% 75% at 92% 18%, rgba(245, 158, 11, 0.17) 0%, transparent 60%),
+    linear-gradient(135deg, #251038 0%, #1c0f2c 52%, #291128 100%);
+  --sw-perspective-gradient:
+    radial-gradient(65% 80% at 90% 10%, rgba(245, 158, 11, 0.16) 0%, transparent 65%),
+    linear-gradient(135deg, #221036 0%, #1b0f2b 60%, #271329 100%);
+}
+
+/* 4. Skyline Feed (Electric Social Blue: Royal Sapphire + Sky Cyan + Iris) */
+html[data-theme='social-sky'] {
+  --sw-canvas: #071124;
+  --sw-chrome: rgba(9, 20, 44, 0.88);
+  --sw-surface: #0e1c38;
+  --sw-surface-elevated: #15274a;
+  --sw-surface-input: #081328;
+  --sw-border: rgba(96, 165, 250, 0.2);
+  --sw-divider: rgba(96, 165, 250, 0.12);
+  --sw-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 10px 28px -8px rgba(3, 8, 22, 0.6);
+  --sw-glow-1: rgba(37, 99, 235, 0.2);
+  --sw-glow-2: rgba(6, 182, 212, 0.14);
+  --sw-glow-3: rgba(129, 140, 248, 0.13);
+  --sw-accent-gradient: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+  --sw-accent-gradient-hover: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+  --sw-accent-fg: #ffffff;
+  --sw-accent-text: #60a5fa;
+  --sw-link-text: #38bdf8;
+  --sw-secondary-text: #a5b4fc;
+  --sw-accent-soft: rgba(59, 130, 246, 0.18);
+  --sw-accent-border: rgba(96, 165, 250, 0.55);
+  --sw-accent-glow: rgba(59, 130, 246, 0.44);
+  --sw-hero-gradient:
+    radial-gradient(65% 85% at 10% 10%, rgba(37, 99, 235, 0.24) 0%, transparent 65%),
+    radial-gradient(55% 75% at 92% 15%, rgba(6, 182, 212, 0.18) 0%, transparent 60%),
+    linear-gradient(135deg, #0d1f44 0%, #0b1836 52%, #131b42 100%);
+  --sw-perspective-gradient:
+    radial-gradient(65% 80% at 90% 10%, rgba(129, 140, 248, 0.18) 0%, transparent 65%),
+    linear-gradient(135deg, #0f1f44 0%, #0d1a38 60%, #141a40 100%);
+}
+
+/* Social Media Theme Surface & Canvas Overrides */
+html[data-theme^='social-'] body,
+html[data-theme^='social-'] .sanctuary-shell,
+html[data-theme^='social-'] .min-h-screen.dark\:bg-\[\#070B19\],
+html[data-theme^='social-'] .min-h-screen.bg-slate-50 {
+  background-color: var(--sw-canvas);
+}
+
+html[data-theme^='social-'] .sanctuary-glow {
+  background-image:
+    radial-gradient(58% 44% at 12% 4%, var(--sw-glow-1) 0%, transparent 70%),
+    radial-gradient(50% 40% at 90% 12%, var(--sw-glow-2) 0%, transparent 68%),
+    radial-gradient(45% 40% at 50% 92%, var(--sw-glow-3) 0%, transparent 72%);
+}
+
+html[data-theme^='social-'] .dark\:bg-\[\#090F22\]\/90,
+html[data-theme^='social-'] .dark\:bg-\[\#090F22\]\/95,
+html[data-theme^='social-'] .dark\:bg-\[\#070B19\]\/90,
+html[data-theme='social-daylight'] .bg-white\/85,
+html[data-theme='social-daylight'] .bg-white\/90,
+html[data-theme='social-daylight'] .bg-white\/95 {
+  background-color: var(--sw-chrome);
+  backdrop-filter: blur(20px) saturate(165%);
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
+}
+
+html[data-theme^='social-'] .dark\:bg-\[\#0D1326\],
+html[data-theme^='social-'] .dark\:bg-\[\#0A0F20\],
+html[data-theme='social-daylight'] .bg-white {
+  background-color: var(--sw-surface);
+  box-shadow: var(--sw-card-shadow);
+}
+
+html[data-theme^='social-'] .dark\:bg-\[\#111936\],
+html[data-theme='social-daylight'] .bg-slate-50:not(body):not(.sanctuary-shell):not(.min-h-screen) {
+  background-color: var(--sw-surface-elevated);
+}
+
+html[data-theme^='social-'] .dark\:bg-\[\#070B19\]:not(body):not(.min-h-screen):not(.sanctuary-shell) {
+  background-color: var(--sw-surface-input);
+}
+
+html[data-theme^='social-'] .dark\:border-indigo-950,
+html[data-theme^='social-'] .dark\:border-indigo-950\/80,
+html[data-theme^='social-'] .dark\:border-indigo-950\/70,
+html[data-theme^='social-'] .dark\:border-indigo-950\/90,
+html[data-theme^='social-'] .dark\:border-indigo-950\/60,
+html[data-theme^='social-'] .dark\:border-indigo-900,
+html[data-theme^='social-'] .dark\:border-indigo-900\/80,
+html[data-theme^='social-'] .dark\:border-indigo-800,
+html[data-theme='social-daylight'] .border-slate-200,
+html[data-theme='social-daylight'] .border-slate-200\/80,
+html[data-theme='social-daylight'] .border-slate-200\/90,
+html[data-theme='social-daylight'] .border-slate-100 {
+  border-color: var(--sw-border);
+}
+
+/* Social Hero & Spotlight Cards */
+html[data-theme^='social-'] .sw-hero-surface {
+  background-image: var(--sw-hero-gradient);
+  border-color: var(--sw-border);
+  box-shadow: var(--sw-card-shadow);
+}
+
+html[data-theme^='social-'] .sw-perspective-surface {
+  background-image: var(--sw-perspective-gradient);
+  border-color: var(--sw-border);
+  box-shadow: var(--sw-card-shadow);
+}
+
+/* Social Primary Actions, Active Indicators & Vibrant Links */
+html[data-theme^='social-'] .sw-btn-primary,
+html[data-theme^='social-'] .bg-cyan-600,
+html[data-theme^='social-'] .dark\:bg-cyan-500,
+html[data-theme^='social-'] .bg-cyan-500 {
+  background-color: transparent;
+  background-image: var(--sw-accent-gradient);
+  color: var(--sw-accent-fg);
+  box-shadow: 0 6px 20px -6px var(--sw-accent-glow);
+}
+
+html[data-theme^='social-'] .sw-btn-primary:hover,
+html[data-theme^='social-'] .bg-cyan-600:hover,
+html[data-theme^='social-'] .dark\:bg-cyan-500:hover,
+html[data-theme^='social-'] .bg-cyan-500:hover {
+  background-image: var(--sw-accent-gradient-hover);
+}
+
+html[data-theme^='social-'] .sw-bottom-bar {
+  background-image: var(--sw-accent-gradient);
+  box-shadow: 0 0 10px var(--sw-accent-glow);
+}
+
+html[data-theme^='social-'] .sw-nav-active {
+  background-color: var(--sw-accent-soft);
+  color: var(--sw-accent-text);
+}
+
+html[data-theme^='social-'] .text-cyan-700,
+html[data-theme^='social-'] .text-cyan-600,
+html[data-theme^='social-'] .dark\:text-cyan-400,
+html[data-theme^='social-'] .dark\:text-cyan-300,
+html[data-theme^='social-'] .text-cyan-300,
+html[data-theme^='social-'] .text-cyan-500 {
+  color: var(--sw-accent-text);
+}
+
+html[data-theme^='social-'] .sw-link-accent {
+  color: var(--sw-link-text);
+}
+
+html[data-theme^='social-'] .text-violet-700,
+html[data-theme^='social-'] .dark\:text-violet-300 {
+  color: var(--sw-secondary-text);
+}
+
+html[data-theme^='social-'] .group:hover .group-hover\:text-cyan-700,
+html[data-theme^='social-'] .group:hover .dark\:group-hover\:text-cyan-300,
+html[data-theme^='social-'] .hover\:text-cyan-600:hover,
+html[data-theme^='social-'] .dark\:hover\:text-cyan-300:hover,
+html[data-theme^='social-'] .dark\:hover\:text-cyan-400:hover,
+html[data-theme^='social-'] .hover\:text-cyan-500:hover {
+  color: var(--sw-accent-text);
+}
+
+html[data-theme^='social-'] .border-cyan-500,
+html[data-theme^='social-'] .border-cyan-500\/70,
+html[data-theme^='social-'] .border-cyan-500\/60,
+html[data-theme^='social-'] .border-cyan-500\/35,
+html[data-theme^='social-'] .focus\:border-cyan-500:focus,
+html[data-theme^='social-'] .hover\:border-cyan-500\/40:hover,
+html[data-theme^='social-'] .dark\:hover\:border-cyan-500\/35:hover,
+html[data-theme^='social-'] .hover\:border-cyan-500\/45:hover {
+  border-color: var(--sw-accent-border);
+}
+
+html[data-theme^='social-'] .bg-cyan-500\/10,
+html[data-theme^='social-'] .bg-cyan-500\/12,
+html[data-theme^='social-'] .bg-cyan-500\/15,
+html[data-theme^='social-'] .bg-cyan-500\/20 {
+  background-color: var(--sw-accent-soft);
+}
+
+html[data-theme^='social-'] .ring-cyan-500\/20 {
+  --tw-ring-color: var(--sw-accent-glow);
 }
 
 /* Additional curated sanctuary themes */
@@ -402,7 +694,7 @@ html[data-theme='liquid-glass'] .dark\:from-\[\#101836\] {
     0 16px 40px rgba(2, 8, 24, 0.44);
 }
 
-html[data-theme='liquid-glass'] .dark\:bg-\[\#070B19\]:not(.min-h-screen):not(.sanctuary-shell) {
+html[data-theme='liquid-glass'] .dark\:bg-\[\#070B19\]:not(body):not(.min-h-screen):not(.sanctuary-shell) {
   background-color: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(14px) saturate(150%);
   -webkit-backdrop-filter: blur(14px) saturate(150%);

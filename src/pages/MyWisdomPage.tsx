@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { LayoutGroup, motion } from 'motion/react';
 import { Archive, Edit3, FileText, Trash2, X } from 'lucide-react';
 import { AnswerCard } from '../components/AnswerCard';
 import { Layout } from '../components/Layout';
@@ -144,22 +145,42 @@ export function MyWisdomPage({ defaultTab = 'questions' }: { defaultTab?: TabId 
           </div>
         )}
 
-        <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`min-h-[42px] rounded-xl px-4 py-2 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                tab === t.id
-                  ? 'bg-cyan-600 dark:bg-cyan-500 text-white dark:text-slate-950'
-                  : 'border border-slate-200 dark:border-indigo-950 bg-white dark:bg-[#0D1326] text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <LayoutGroup id="my-wisdom-tabs">
+          <div
+            role="tablist"
+            aria-label="My Wisdom sections"
+            className="-mx-4 px-4 sm:mx-0 sm:px-0 flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-slate-200/80 dark:border-indigo-950/80"
+          >
+            {tabs.map((t) => {
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setTab(t.id)}
+                  className={`relative min-h-[44px] px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 active:scale-[0.98] ${
+                    active
+                      ? 'text-cyan-700 dark:text-cyan-300'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <span>{t.label}</span>
+                  {active && (
+                    <motion.span
+                      layoutId="my-wisdom-bottom-bar"
+                      data-bottom-bar="active"
+                      aria-hidden="true"
+                      transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+                      className="sw-bottom-bar pointer-events-none absolute bottom-0 left-2 right-2 h-[2.5px] rounded-full bg-cyan-600 dark:bg-cyan-400"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </LayoutGroup>
 
         {tab === 'questions' && (
           myQs.isLoading ? (

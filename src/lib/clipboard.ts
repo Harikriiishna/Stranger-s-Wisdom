@@ -41,9 +41,6 @@ export function canUseNativeShare(data?: ShareData): boolean {
   if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') {
     return false;
   }
-  if (!isMobileDevice()) {
-    return false;
-  }
   if (data && typeof navigator.canShare === 'function') {
     try {
       return navigator.canShare(data);
@@ -64,15 +61,26 @@ export async function shareContent({
   url: string;
 }): Promise<ShareOutcome> {
   const snippet = buildShareSnippet(text);
-  const shareData: ShareData = {
+  const fullData: ShareData = {
     url,
     ...(title?.trim() ? { title: title.trim() } : {}),
     ...(snippet ? { text: snippet } : {}),
   };
 
-  if (canUseNativeShare(shareData)) {
+  const urlOnlyData: ShareData = {
+    url,
+    ...(title?.trim() ? { title: title.trim() } : {}),
+  };
+
+  const sharePayload = canUseNativeShare(fullData)
+    ? fullData
+    : canUseNativeShare(urlOnlyData)
+    ? urlOnlyData
+    : null;
+
+  if (sharePayload && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     try {
-      await navigator.share(shareData);
+      await navigator.share(sharePayload);
       return 'shared';
     } catch (err) {
       if (
@@ -84,7 +92,7 @@ export async function shareContent({
       ) {
         return 'cancelled';
       }
-      // Fall through to clipboard copy if native sharing is blocked (e.g., restricted iframe)
+      // Fall through to clipboard copy if Web Share API is blocked (e.g., restricted iframe)
     }
   }
 

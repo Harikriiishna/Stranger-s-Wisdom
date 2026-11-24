@@ -10,6 +10,7 @@ import {
   Edit3,
   EyeOff,
   Flag,
+  Flame,
   LockOpen,
   Minimize2,
   Send,
@@ -270,18 +271,24 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
   };
 
   return (
-    <Layout focusMode={focusMode}>
+    <Layout focusMode={focusMode} hideDesktopBack>
       <div className={focusMode ? 'max-w-[65ch] mx-auto space-y-8' : 'max-w-3xl mx-auto space-y-6'}>
         <div className="flex items-center justify-between gap-3">
           {!focusMode ? (
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="min-h-[44px] inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+                  else navigate('/home');
+                }}
+                className="hidden md:inline-flex min-h-[44px] items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <span className="md:hidden" />
+            </>
           ) : (
             <span className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">
               Focus Mode · Reading view
@@ -342,6 +349,22 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
                   </span>
                   <span>·</span>
                   <span>{formatStatusLabel(data.question.status)}</span>
+                  {!focusMode && data.question.isTrending && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span
+                        data-trending="true"
+                        title="Popular discussion with high engagement"
+                        className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap"
+                      >
+                        <Flame
+                          className="h-3.5 w-3.5 shrink-0 fill-amber-500/25"
+                          aria-hidden="true"
+                        />
+                        <span>Trending</span>
+                      </span>
+                    </>
+                  )}
                 </div>
                 <span>{data.question.authorLabel}</span>
               </div>

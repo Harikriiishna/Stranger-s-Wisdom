@@ -209,6 +209,7 @@ export async function resolveUserFromTokenOrCookie(
           authProvider: 'google',
           privateAlias: generatePrivateAlias(),
           role,
+          theme: 'social-pulse',
         })
         .onConflictDoUpdate({
           target: profiles.id,

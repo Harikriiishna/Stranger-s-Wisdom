@@ -525,7 +525,7 @@ export function SettingsPage() {
               </h2>
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {THEME_OPTIONS.find((t) => t.id === theme)?.label ?? 'Midnight Sanctuary'}
+              {THEME_OPTIONS.find((t) => t.id === theme)?.label ?? 'Social Pulse'}
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -567,10 +567,14 @@ export function SettingsPage() {
                       />
                       <span
                         className="w-1/2 h-full flex items-end justify-end p-1"
-                        style={{ backgroundColor: item.swatches[1] }}
+                        style={
+                          item.gradient
+                            ? { backgroundImage: item.gradient }
+                            : { backgroundColor: item.swatches[1] }
+                        }
                       >
                         <span
-                          className="h-2.5 w-2.5 rounded-full"
+                          className="h-2.5 w-2.5 rounded-full ring-1 ring-white/50"
                           style={{ backgroundColor: item.swatches[2] }}
                         />
                       </span>

@@ -127,6 +127,7 @@ router.post('/auth/register', async (req: Request, res: Response) => {
         authProvider: 'email',
         privateAlias: parsed.data.privateAlias || generatePrivateAlias(),
         role,
+        theme: 'social-pulse',
         recoveryCodeHash: hashToken(recoveryCode),
       })
       .returning();
@@ -223,6 +224,7 @@ router.post('/auth/google', async (req: Request, res: Response) => {
           authProvider: 'google',
           privateAlias: generatePrivateAlias(),
           role,
+          theme: 'social-pulse',
         })
         .onConflictDoUpdate({
           target: profiles.id,
@@ -270,6 +272,7 @@ router.post('/auth/anonymous', async (req: Request, res: Response) => {
         authProvider: 'anonymous',
         privateAlias: generatePrivateAlias(),
         role: 'member',
+        theme: 'social-pulse',
       })
       .returning();
 
@@ -507,6 +510,10 @@ const profileUpdateSchema = z.object({
   privateAlias: z.string().trim().min(2).max(40).optional(),
   theme: z
     .enum([
+      'social-pulse',
+      'social-daylight',
+      'social-aurora',
+      'social-sky',
       'dark',
       'light',
       'system',
@@ -620,6 +627,16 @@ router.get('/profile/export', requireAuth, async (req: AuthRequest, res: Respons
 
 // ---------- HELPER: FORMAT PUBLIC QUESTIONS & ANSWERS ----------
 
+const TRENDING_ENGAGEMENT_THRESHOLD = 6;
+
+function computeQuestionEngagementScore(
+  answerCount: number,
+  reactionCount: number,
+  saveCount: number
+): number {
+  return answerCount * 3 + reactionCount + saveCount * 2;
+}
+
 async function buildPublicQuestionCards(
   rawQuestions: (typeof questions.$inferSelect)[],
   viewerId?: string
@@ -639,18 +656,42 @@ async function buildPublicQuestionCards(
     .from(answers)
     .where(and(inArray(answers.questionId, qIds), eq(answers.status, 'active')));
 
+  const answerToQuestion = new Map<string, string>();
+  const ansIds: string[] = [];
+  for (const a of answerRows) {
+    answerToQuestion.set(a.id, a.questionId);
+    ansIds.push(a.id);
+  }
+
+  const reactionCountByQ = new Map<string, number>();
+  if (ansIds.length > 0) {
+    const reactionRows = await db
+      .select({ answerId: reactions.answerId })
+      .from(reactions)
+      .where(inArray(reactions.answerId, ansIds));
+    for (const r of reactionRows) {
+      const qId = answerToQuestion.get(r.answerId);
+      if (qId) {
+        reactionCountByQ.set(qId, (reactionCountByQ.get(qId) ?? 0) + 1);
+      }
+    }
+  }
+
+  const savedRows = await db
+    .select({
+      questionId: savedQuestions.questionId,
+      userId: savedQuestions.userId,
+    })
+    .from(savedQuestions)
+    .where(inArray(savedQuestions.questionId, qIds));
+
+  const saveCountByQ = new Map<string, number>();
   const savedIds = new Set<string>();
-  if (viewerId) {
-    const saved = await db
-      .select({ questionId: savedQuestions.questionId })
-      .from(savedQuestions)
-      .where(
-        and(
-          eq(savedQuestions.userId, viewerId),
-          inArray(savedQuestions.questionId, qIds)
-        )
-      );
-    for (const s of saved) savedIds.add(s.questionId);
+  for (const s of savedRows) {
+    saveCountByQ.set(s.questionId, (saveCountByQ.get(s.questionId) ?? 0) + 1);
+    if (viewerId && s.userId === viewerId) {
+      savedIds.add(s.questionId);
+    }
   }
 
   const answersByQ = new Map<string, typeof answerRows>();
@@ -663,6 +704,13 @@ async function buildPublicQuestionCards(
   return rawQuestions.map((q) => {
     const qAnswers = answersByQ.get(q.id) ?? [];
     const sorted = [...qAnswers].sort((a, b) => b.qualityScore - a.qualityScore);
+    const reactionCount = reactionCountByQ.get(q.id) ?? 0;
+    const saveCount = saveCountByQ.get(q.id) ?? 0;
+    const engagementScore = computeQuestionEngagementScore(
+      qAnswers.length,
+      reactionCount,
+      saveCount
+    );
     return {
       id: q.id,
       title: q.title,
@@ -681,6 +729,8 @@ async function buildPublicQuestionCards(
       isOwner: Boolean(viewerId && q.authorId === viewerId),
       isSaved: savedIds.has(q.id),
       authorLabel: 'Asked anonymously',
+      engagementScore,
+      isTrending: engagementScore >= TRENDING_ENGAGEMENT_THRESHOLD,
     };
   });
 }
@@ -742,7 +792,10 @@ router.get('/home', optionalAuth, async (req: AuthRequest, res: Response) => {
     const cards = await buildPublicQuestionCards(visibleQuestions, viewerId);
 
     const featuredQuestion =
-      cards.find((c) => c.answerCount > 0) ?? cards[0] ?? null;
+      cards.find((c) => c.isTrending) ??
+      cards.find((c) => c.answerCount > 0) ??
+      cards[0] ??
+      null;
 
     const unansweredQuestions = cards
       .filter((c) => c.answerCount === 0 && c.status === 'open')
@@ -974,34 +1027,34 @@ router.get('/questions/:id', optionalAuth, async (req: AuthRequest, res: Respons
     const ansIds = activeAnswers.map((a) => a.id);
     const reactionMap = await getReactionSummaryForAnswers(ansIds, viewerId);
 
-    const savedAnsSet = new Set<string>();
-    let isQuestionSaved = false;
+    let reactionCount = 0;
+    for (const rx of reactionMap.values()) {
+      for (const count of Object.values(rx.counts)) {
+        reactionCount += count;
+      }
+    }
 
-    if (viewerId) {
-      const [sq] = await db
-        .select()
-        .from(savedQuestions)
+    const savedQuestionRows = await db
+      .select({ userId: savedQuestions.userId })
+      .from(savedQuestions)
+      .where(eq(savedQuestions.questionId, id));
+    const questionSaveCount = savedQuestionRows.length;
+    const isQuestionSaved = Boolean(
+      viewerId && savedQuestionRows.some((row) => row.userId === viewerId)
+    );
+
+    const savedAnsSet = new Set<string>();
+    if (viewerId && ansIds.length > 0) {
+      const sa = await db
+        .select({ answerId: savedAnswers.answerId })
+        .from(savedAnswers)
         .where(
           and(
-            eq(savedQuestions.userId, viewerId),
-            eq(savedQuestions.questionId, id)
+            eq(savedAnswers.userId, viewerId),
+            inArray(savedAnswers.answerId, ansIds)
           )
-        )
-        .limit(1);
-      isQuestionSaved = Boolean(sq);
-
-      if (ansIds.length > 0) {
-        const sa = await db
-          .select({ answerId: savedAnswers.answerId })
-          .from(savedAnswers)
-          .where(
-            and(
-              eq(savedAnswers.userId, viewerId),
-              inArray(savedAnswers.answerId, ansIds)
-            )
-          );
-        for (const row of sa) savedAnsSet.add(row.answerId);
-      }
+        );
+      for (const row of sa) savedAnsSet.add(row.answerId);
     }
 
     let oneVoiceStatus: string | null = null;
@@ -1032,6 +1085,12 @@ router.get('/questions/:id', optionalAuth, async (req: AuthRequest, res: Respons
       };
     });
 
+    const engagementScore = computeQuestionEngagementScore(
+      formattedAnswers.length,
+      reactionCount,
+      questionSaveCount
+    );
+
     return res.json({
       question: {
         id: q.id,
@@ -1050,6 +1109,8 @@ router.get('/questions/:id', optionalAuth, async (req: AuthRequest, res: Respons
         isSaved: isQuestionSaved,
         answerCount: formattedAnswers.length,
         authorLabel: 'Asked anonymously',
+        engagementScore,
+        isTrending: engagementScore >= TRENDING_ENGAGEMENT_THRESHOLD,
       },
       answers: formattedAnswers,
     });
