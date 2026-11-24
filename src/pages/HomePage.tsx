@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Bookmark, Feather, Sparkles, X } from 'lucide-react';
@@ -24,6 +24,11 @@ export function HomePage() {
     queryKey: ['home'],
     queryFn: questionsApi.home,
   });
+
+  const handleRefresh = useCallback(async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    await refetch({ cancelRefetch: false });
+  }, [refetch]);
 
   const saveQuestionMutation = useMutation({
     mutationFn: async (q: QuestionCardItem) => {
@@ -96,7 +101,7 @@ export function HomePage() {
   });
 
   return (
-    <Layout>
+    <Layout onRefresh={handleRefresh}>
       <div className="space-y-10 min-w-0">
         {actionError && (
           <div

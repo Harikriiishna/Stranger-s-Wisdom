@@ -183,11 +183,28 @@ export default defineConfig(() => {
       ],
     },
     server: {
+      host: '0.0.0.0',
+      port: 3000,
+      strictPort: false,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
-      hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      hmr: process.env.DISABLE_HMR === 'true' ? false : { overlay: false },
+      // Disable file watching when DISABLE_HMR is true; otherwise ignore heavy dirs and poll safely to avoid OS watcher limits.
+      watch:
+        process.env.DISABLE_HMR === 'true'
+          ? null
+          : {
+              usePolling: true,
+              interval: 300,
+              binaryInterval: 1000,
+              ignored: [
+                '**/node_modules/**',
+                '**/.git/**',
+                '**/dist/**',
+                '**/dev-dist/**',
+                '**/.aistudio/**',
+              ],
+            },
     },
   };
 });

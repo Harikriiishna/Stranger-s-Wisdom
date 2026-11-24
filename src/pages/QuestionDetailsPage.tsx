@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -87,6 +87,16 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
     queryFn: () => questionsApi.getById(id!),
     enabled: Boolean(id),
   });
+
+  const handleRefresh = useCallback(async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    await Promise.all([
+      refetch({ cancelRefetch: false }),
+      profile
+        ? queryClient.invalidateQueries({ queryKey: ['saved'] })
+        : Promise.resolve(),
+    ]);
+  }, [refetch, profile, queryClient]);
 
   const highlightedAnswerId = location.hash.startsWith('#answer-')
     ? location.hash.slice('#answer-'.length)
@@ -271,7 +281,7 @@ export function QuestionDetailsPage({ openEditorByDefault = false }: { openEdito
   };
 
   return (
-    <Layout focusMode={focusMode} hideDesktopBack>
+    <Layout focusMode={focusMode} hideDesktopBack onRefresh={handleRefresh}>
       <div className={focusMode ? 'max-w-[65ch] mx-auto space-y-8' : 'max-w-3xl mx-auto space-y-6'}>
         <div className="flex items-center justify-between gap-3">
           {!focusMode ? (

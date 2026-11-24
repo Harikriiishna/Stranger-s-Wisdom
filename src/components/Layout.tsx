@@ -19,22 +19,44 @@ import {
   User,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { notificationsApi } from '../lib/api';
-import { OfflineIndicator, PWAInstallButton } from './PWAStatus';
+import {
+  OfflineIndicator,
+  PullToRefreshIndicator,
+  PWAInstallButton,
+} from './PWAStatus';
 
 export function Layout({
   children,
   focusMode = false,
   hideDesktopBack = false,
+  onRefresh,
 }: {
   children: React.ReactNode;
   focusMode?: boolean;
   hideDesktopBack?: boolean;
+  onRefresh?: () => Promise<unknown>;
 }) {
   const { profile } = useAuth();
+  const isOnline = useOnlineStatus();
   const navigate = useNavigate();
   const location = useLocation();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const {
+    pullDistance,
+    status: pullStatus,
+    progress: pullProgress,
+    justReconnected,
+    dismissReconnected,
+    triggerRefresh,
+  } = usePullToRefresh({
+    scrollRef: scrollContainerRef,
+    onRefresh,
+    isOnline,
+  });
 
   useEffect(() => {
     if (!location.hash && scrollContainerRef.current) {
@@ -219,13 +241,31 @@ export function Layout({
           </header>
         )}
 
-        <OfflineIndicator />
+        <OfflineIndicator
+          justReconnected={justReconnected}
+          onManualRefresh={
+            onRefresh
+              ? () => {
+                  void triggerRefresh();
+                }
+              : undefined
+          }
+          onDismissReconnected={dismissReconnected}
+          isRefreshing={pullStatus === 'refreshing'}
+        />
 
         {/* Dedicated App Scroll View (Mobile scrolls only here; Desktop scrolls document naturally) */}
         <div
           ref={scrollContainerRef}
           className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y md:overflow-visible"
         >
+          {onRefresh && (
+            <PullToRefreshIndicator
+              status={pullStatus}
+              pullDistance={pullDistance}
+              progress={pullProgress}
+            />
+          )}
           <main
             className={`w-full mx-auto ${
               focusMode

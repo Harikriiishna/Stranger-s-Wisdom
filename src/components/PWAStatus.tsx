@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
-import { Download, Share, Smartphone, WifiOff, X } from 'lucide-react';
+import {
+  ArrowDown,
+  Check,
+  Download,
+  RefreshCw,
+  Share,
+  Smartphone,
+  Wifi,
+  WifiOff,
+  X,
+} from 'lucide-react';
+import { motion } from 'motion/react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import type { PullToRefreshStatus } from '../hooks/usePullToRefresh';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export function PWAInstallButton({
@@ -125,21 +137,140 @@ export function PWAInstallButton({
   );
 }
 
-export function OfflineIndicator() {
+export function OfflineIndicator({
+  justReconnected = false,
+  onManualRefresh,
+  onDismissReconnected,
+  isRefreshing = false,
+}: {
+  justReconnected?: boolean;
+  onManualRefresh?: () => void;
+  onDismissReconnected?: () => void;
+  isRefreshing?: boolean;
+}) {
   const isOnline = useOnlineStatus();
 
-  if (isOnline) return null;
+  if (!isOnline) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="shrink-0 md:sticky md:top-0 z-20 border-b border-amber-500/30 bg-amber-500/12 dark:bg-amber-950/60 backdrop-blur-md px-4 py-2 text-xs font-medium text-amber-800 dark:text-amber-200 flex items-center justify-center gap-2 text-center"
+      >
+        <WifiOff className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <span>
+          Offline Mode — Viewing previously loaded questions &amp; saved wisdom.
+        </span>
+      </div>
+    );
+  }
+
+  if (justReconnected && onManualRefresh) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        data-reconnected-banner="true"
+        className="shrink-0 md:sticky md:top-0 z-20 border-b border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/55 backdrop-blur-md px-4 py-2 text-xs font-medium text-emerald-800 dark:text-emerald-200 flex flex-wrap items-center justify-center gap-2.5 text-center"
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <Wifi className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <span>Back online — pull down to refresh latest discussions</span>
+        </span>
+        <button
+          type="button"
+          onClick={onManualRefresh}
+          disabled={isRefreshing}
+          className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300 underline underline-offset-2 hover:opacity-80 disabled:opacity-50 cursor-pointer"
+        >
+          <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span>{isRefreshing ? 'Refreshing…' : 'Refresh now'}</span>
+        </button>
+        {onDismissReconnected && (
+          <button
+            type="button"
+            onClick={onDismissReconnected}
+            aria-label="Dismiss online notice"
+            className="p-0.5 rounded text-emerald-700/75 dark:text-emerald-300/75 hover:text-emerald-900 dark:hover:text-white cursor-pointer"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+export function PullToRefreshIndicator({
+  status,
+  pullDistance,
+  progress,
+}: {
+  status: PullToRefreshStatus;
+  pullDistance: number;
+  progress: number;
+}) {
+  const isVisible = pullDistance > 0 || status !== 'idle';
+
+  const label =
+    status === 'refreshing'
+      ? 'Refreshing…'
+      : status === 'ready'
+        ? 'Release to refresh'
+        : status === 'refreshed'
+          ? 'Updated'
+          : status === 'offline'
+            ? 'Still offline — reconnect to refresh'
+            : 'Pull down to refresh';
 
   return (
-    <div
-      role="status"
+    <motion.div
       aria-live="polite"
-      className="shrink-0 md:sticky md:top-0 z-20 border-b border-amber-500/30 bg-amber-500/12 dark:bg-amber-950/60 backdrop-blur-md px-4 py-2 text-xs font-medium text-amber-800 dark:text-amber-200 flex items-center justify-center gap-2 text-center"
+      aria-hidden={!isVisible}
+      data-pull-to-refresh={status}
+      data-pull-distance={Math.round(pullDistance)}
+      initial={false}
+      animate={{
+        height: isVisible ? pullDistance : 0,
+        opacity: isVisible ? Math.min(1, 0.35 + progress * 0.65) : 0,
+      }}
+      transition={
+        status === 'pulling' || status === 'ready'
+          ? { duration: 0 }
+          : { type: 'spring', stiffness: 360, damping: 32 }
+      }
+      className="overflow-hidden flex items-center justify-center select-none pointer-events-none"
     >
-      <WifiOff className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-      <span>
-        Offline Mode — Viewing previously loaded questions &amp; saved wisdom.
-      </span>
-    </div>
+      {isVisible && (
+        <div
+          className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 ${
+            status === 'offline'
+              ? 'text-amber-700 dark:text-amber-300'
+              : status === 'refreshed' || status === 'ready'
+                ? 'text-cyan-700 dark:text-cyan-300'
+                : 'text-slate-600 dark:text-slate-300'
+          }`}
+        >
+          {status === 'refreshing' ? (
+            <RefreshCw className="h-4 w-4 animate-spin text-cyan-600 dark:text-cyan-400 shrink-0" />
+          ) : status === 'refreshed' ? (
+            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          ) : status === 'offline' ? (
+            <WifiOff className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          ) : (
+            <motion.span
+              className="inline-flex"
+              animate={{ rotate: status === 'ready' ? 180 : progress * 140 }}
+              transition={{ duration: 0.12 }}
+            >
+              <ArrowDown className="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+            </motion.span>
+          )}
+          <span>{label}</span>
+        </div>
+      )}
+    </motion.div>
   );
 }
