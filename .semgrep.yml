@@ -1,0 +1,50 @@
+rules:
+  - id: strangers-wisdom.security.no-eval
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Avoid dynamic eval($CODE); arbitrary code execution risk.
+    patterns:
+      - pattern: eval($CODE)
+      - pattern-not: eval("...")
+    metadata:
+      cwe: CWE-95
+      owasp: A03:2021 - Injection
+      category: security
+
+  - id: strangers-wisdom.security.no-raw-sql-interpolation
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Avoid interpolated template strings in SQL query calls on $DB.
+    patterns:
+      - pattern: $DB.query($SQL, ...)
+      - metavariable-regex:
+          metavariable: $SQL
+          regex: '`[^`]*\$\{[^}]+\}[^`]*`'
+    metadata:
+      cwe: CWE-89
+      owasp: A03:2021 - Injection
+      category: security
+
+  - id: strangers-wisdom.security.no-child-process-exec
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Avoid shell command execution with $CMD; prefer execFile or spawn without shell.
+    patterns:
+      - pattern-either:
+          - pattern: exec($CMD, ...)
+          - pattern: execSync($CMD, ...)
+      - pattern-not: exec("...", ...)
+      - pattern-not: execSync("...", ...)
+    metadata:
+      cwe: CWE-78
+      category: security
+
+  - id: strangers-wisdom.iframe.no-blocking-dialogs
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: Avoid window.alert / window.confirm in embedded iframe runtimes; render inline UI feedback.
+    pattern-either:
+      - pattern: window.alert($MSG)
+      - pattern: window.confirm($MSG)
+    metadata:
+      category: best-practice

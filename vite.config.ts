@@ -2,11 +2,18 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
+import {fileURLToPath} from 'url';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
+const rootDir =
+  typeof import.meta.dirname === 'string'
+    ? import.meta.dirname
+    : path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig(() => {
   return {
+    root: rootDir,
     plugins: [
       react(),
       tailwindcss(),
@@ -148,7 +155,6 @@ export default defineConfig(() => {
           if (error) {
             return;
           }
-          const rootDir = import.meta.dirname;
           const distDir = path.resolve(rootDir, 'dist');
           const srcAssets = path.resolve(rootDir, 'src/assets');
           const distAssets = path.resolve(distDir, 'src/assets');
@@ -160,7 +166,7 @@ export default defineConfig(() => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(import.meta.dirname, '.'),
+        '@': rootDir,
       },
       dedupe: [
         'react',
@@ -186,6 +192,11 @@ export default defineConfig(() => {
       host: '0.0.0.0',
       port: 3000,
       strictPort: false,
+      allowedHosts: true as const,
+      fs: {
+        strict: true,
+        allow: [rootDir],
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR === 'true' ? false : { overlay: false },
@@ -197,11 +208,18 @@ export default defineConfig(() => {
               usePolling: true,
               interval: 300,
               binaryInterval: 1000,
+              awaitWriteFinish: {
+                stabilityThreshold: 200,
+                pollInterval: 100,
+              },
               ignored: [
                 '**/node_modules/**',
                 '**/.git/**',
                 '**/dist/**',
                 '**/dev-dist/**',
+                '**/android/**',
+                '**/release-assets/**',
+                '**/coverage/**',
                 '**/.aistudio/**',
               ],
             },

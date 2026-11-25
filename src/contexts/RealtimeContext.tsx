@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getInMemoryToken } from '../lib/api';
+import { getApiOrigin, getInMemoryToken } from '../lib/api';
 import { useAuth } from './AuthContext';
 
 interface RealtimeContextValue {
@@ -26,10 +26,19 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const apiOrigin = getApiOrigin();
     const token = getInMemoryToken();
     const qs = token ? `?token=${encodeURIComponent(token)}` : '';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws${qs}`);
+    let wsUrl: string;
+    if (apiOrigin) {
+      const parsed = new URL(apiOrigin);
+      const wsProto = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${wsProto}//${parsed.host}/ws${qs}`;
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${window.location.host}/ws${qs}`;
+    }
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {

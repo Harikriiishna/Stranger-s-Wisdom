@@ -62,6 +62,7 @@ import {
 } from './moderation.ts';
 import { broadcastPublicEvent, sendUserEvent } from './realtime.ts';
 import { ensureInitialWisdomSeeded } from './seed.ts';
+import semgrepRoutes from './semgrepRoutes.ts';
 
 const router = Router();
 
@@ -2776,6 +2777,8 @@ router.post(
     }
   }
 );
+
+router.use('/semgrep', semgrepRoutes);
 
 router.get('/health', (_req: Request, res: Response) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });

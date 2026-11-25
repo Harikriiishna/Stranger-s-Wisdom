@@ -13,6 +13,7 @@ import {
   Palette,
   Shield,
   ShieldAlert,
+  ShieldCheck,
   Trash2,
   User,
   HardDriveDownload,
@@ -407,6 +408,7 @@ export function ProfilePage() {
             { to: '/one-voice', label: 'One Voice Deliveries', icon: Bell },
             { to: '/settings', label: 'Settings & Account Security', icon: Shield },
             { to: '/privacy-safety', label: 'Privacy & Safety', icon: ShieldAlert },
+            { to: '/security', label: 'Code Scanner & Semgrep Workbench', icon: ShieldCheck },
             { to: '/help', label: 'Help & Support', icon: HelpCircle },
             ...(profile.role === 'moderator' || profile.role === 'admin'
               ? [{ to: '/moderation', label: 'Moderation Dashboard', icon: Shield }]

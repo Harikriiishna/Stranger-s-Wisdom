@@ -1,0 +1,174 @@
+name: Build and Release Android APK
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build & Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Build web bundle & sync Capacitor Android
+        env:
+          VITE_API_ORIGIN: ${{ vars.VITE_API_ORIGIN }}
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Verify Java environment
+        run: |
+          java -version
+          echo "JAVA_HOME=${JAVA_HOME:-}"
+          JAVA_VER_LINE="$(java -version 2>&1 | head -n 1)"
+          JAVA_MAJOR="$(echo "$JAVA_VER_LINE" | sed -E 's/.*version "([0-9]+).*/\1/')"
+          if ! [[ "$JAVA_MAJOR" =~ ^[0-9]+$ ]]; then
+            echo "Error: Could not detect Java version from: $JAVA_VER_LINE"
+            exit 1
+          fi
+          if [ "$JAVA_MAJOR" -lt 21 ]; then
+            echo "Error: Java 21 or newer is required for @capacitor/android 8, detected Java $JAVA_MAJOR"
+            exit 1
+          fi
+          echo "Detected Java major version: $JAVA_MAJOR"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Verify debug APK output
+        run: |
+          DEBUG_APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -s "$DEBUG_APK" ]; then
+            echo "Error: Expected debug APK not found or empty at $DEBUG_APK"
+            exit 1
+          fi
+          mkdir -p release-assets
+          cp "$DEBUG_APK" release-assets/app-debug.apk
+          ls -lh release-assets/app-debug.apk
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: release-assets/app-debug.apk
+          if-no-files-found: error
+
+      - name: Build signed release APK (optional when signing secrets exist)
+        if: >-
+          secrets.ANDROID_KEYSTORE_BASE64 != '' &&
+          secrets.ANDROID_KEYSTORE_PASSWORD != '' &&
+          secrets.ANDROID_KEY_ALIAS != '' &&
+          secrets.ANDROID_KEY_PASSWORD != ''
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          KEYSTORE_FILE="${RUNNER_TEMP}/release.keystore"
+          echo "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_FILE"
+          cd android
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file="$KEYSTORE_FILE" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASS" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASS" \
+            --stacktrace --no-daemon
+          cd ..
+          rm -f "$KEYSTORE_FILE"
+          RELEASE_APK="android/app/build/outputs/apk/release/app-release.apk"
+          if [ -s "$RELEASE_APK" ]; then
+            cp "$RELEASE_APK" release-assets/app-release.apk
+            ls -lh release-assets/app-release.apk
+          fi
+
+      - name: Upload signed release APK artifact
+        if: >-
+          secrets.ANDROID_KEYSTORE_BASE64 != '' &&
+          secrets.ANDROID_KEYSTORE_PASSWORD != '' &&
+          secrets.ANDROID_KEY_ALIAS != '' &&
+          secrets.ANDROID_KEY_PASSWORD != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: release-assets/app-release.apk
+          if-no-files-found: ignore
+
+      - name: Publish APK to GitHub Releases
+        id: publish_release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            RELEASE_TITLE="Stranger's Wisdom ${TAG_NAME}"
+            if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+              gh release upload "$TAG_NAME" release-assets/*.apk --clobber
+              gh release edit "$TAG_NAME" --latest
+            else
+              gh release create "$TAG_NAME" release-assets/*.apk \
+                --title "$RELEASE_TITLE" \
+                --notes "Automated Android APK build from commit ${GITHUB_SHA}." \
+                --latest
+            fi
+          else
+            TAG_NAME="apk-build-${{ github.run_number }}-${{ github.run_attempt }}"
+            gh release create "$TAG_NAME" release-assets/*.apk \
+              --title "APK Release #${{ github.run_number }}" \
+              --notes "Automated Android APK build from ${GITHUB_REF_NAME} (${GITHUB_SHA})." \
+              --target "${{ github.sha }}" \
+              --latest
+          fi
+
+      - name: Report APK download result
+        run: |
+          {
+            echo "## Android APK Build Summary"
+            echo ""
+            echo "- Workflow artifact \`app-debug-apk\` uploaded."
+            if [ "${{ steps.publish_release.outcome }}" = "success" ]; then
+              echo "- Permanent latest debug APK URL: https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/app-debug.apk"
+              if [ -f release-assets/app-release.apk ]; then
+                echo "- Permanent latest signed release APK URL: https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/app-release.apk"
+              fi
+            else
+              echo "- GitHub Release upload skipped or failed (ensure Repository Settings -> Actions -> General -> Workflow permissions is set to Read and write permissions). The APK is still available in the workflow artifacts above."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

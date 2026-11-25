@@ -15,6 +15,11 @@ import { readOfflineFallback, recordCacheableResponse } from './offlineCache';
 let memoryBearerToken: string | null = null;
 let authExpiredHandler: (() => void) | null = null;
 
+export function getApiOrigin(): string {
+  const configured = (import.meta.env.VITE_API_ORIGIN || '').trim();
+  return configured ? configured.replace(/\/+$/, '') : '';
+}
+
 export function setInMemoryToken(token: string | null) {
   memoryBearerToken = token;
 }
@@ -71,7 +76,7 @@ export async function apiRequest<T>(
 
   let res: Response;
   try {
-    res = await fetch(`/api${path}`, {
+    res = await fetch(`${getApiOrigin()}/api${path}`, {
       ...options,
       headers,
       credentials: 'include',
@@ -453,5 +458,57 @@ export const moderationApi = {
     apiRequest<{ ok: boolean }>(`/moderation/reports/${reportId}/action`, {
       method: 'POST',
       body: JSON.stringify({ action, reason }),
+    }),
+};
+
+export const semgrepApi = {
+  rules: () =>
+    apiRequest<{
+      builtinRules: import('./semgrepEngine').SemgrepRule[];
+      workspaceRules: import('./semgrepEngine').SemgrepRule[];
+      workspaceConfigExists: boolean;
+      workspaceParseErrors: string[];
+    }>('/semgrep/rules'),
+  scan: (payload: {
+    code: string;
+    filename?: string;
+    language?: string;
+    ruleYaml?: string;
+    includeBuiltinSecrets?: boolean;
+    includeBuiltinDefaults?: boolean;
+  }) =>
+    apiRequest<{
+      findings: import('./semgrepEngine').SemgrepFinding[];
+      summary: import('./semgrepEngine').SemgrepScanSummary;
+      parseErrors: string[];
+      sarif: Record<string, unknown>;
+    }>('/semgrep/scan', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  autofix: (payload: {
+    code: string;
+    findings: Array<{
+      ruleId: string;
+      startOffset: number;
+      endOffset: number;
+      fixSuggestion?: string;
+    }>;
+    targetRuleId?: string;
+  }) =>
+    apiRequest<{ fixedCode: string; appliedCount: number }>('/semgrep/autofix', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  scanWorkspace: (payload?: { ruleYaml?: string; includeWorkspaceRules?: boolean }) =>
+    apiRequest<{
+      findings: import('./semgrepEngine').SemgrepFinding[];
+      summary: import('./semgrepEngine').SemgrepScanSummary;
+      parseErrors: string[];
+      sarif: Record<string, unknown>;
+      scannedFiles: string[];
+    }>('/semgrep/scan-workspace', {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
     }),
 };

@@ -28,6 +28,7 @@ import { OnboardingScreen, SplashScreen } from './pages/OnboardingAndSplash';
 import { OneVoicePage, PerspectivePage } from './pages/OneVoiceAndPerspectivePages';
 import { QuestionDetailsPage } from './pages/QuestionDetailsPage';
 import { SavedAndCollectionsPage } from './pages/SavedAndCollectionsPage';
+import { SemgrepWorkbenchPage } from './pages/SemgrepWorkbenchPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +89,7 @@ export default function App() {
                 <Route path="/report" element={<ReportContentPage />} />
                 <Route path="/help" element={<HelpSupportPage />} />
                 <Route path="/moderation" element={<ModerationDashboardPage />} />
+                <Route path="/security" element={<SemgrepWorkbenchPage />} />
                 <Route path="*" element={<Navigate to="/home" replace />} />
               </Routes>
               </BrowserRouter>

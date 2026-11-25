@@ -15,6 +15,7 @@ import {
   Radio,
   Search,
   Shield,
+  ShieldCheck,
   Sparkles,
   User,
 } from 'lucide-react';
@@ -97,6 +98,7 @@ export function Layout({
     { to: '/my-wisdom', label: 'My Answers', icon: MessageSquareHeart },
     { to: '/saved', label: 'Saved Wisdom', icon: Bookmark },
     { to: '/notifications', label: 'Notifications', icon: Bell, badge: unreadCount },
+    { to: '/security', label: 'Code Scanner', icon: ShieldCheck },
     { to: '/profile', label: 'Profile', icon: User },
   ];
 
